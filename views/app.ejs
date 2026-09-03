@@ -1,0 +1,1063 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BMA - <%= page.charAt(0).toUpperCase()+page.slice(1) %></title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<style>
+:root{
+  --p:#4F46E5; --s:#10B981; --d:#EF4444; --w:#F59E0B; --dk:#111827; --bg:#F4F7FE;
+}
+*{font-family:'Inter',sans-serif;box-sizing:border-box;}
+body{background:var(--bg);color:var(--dk);margin:0;}
+.wrap{display:flex;min-height:100vh;}
+.sidebar{
+  width:250px;background:#fff;border-right:1px solid #EEF0F5;padding:20px 14px;
+  position:fixed;top:0;left:0;bottom:0;overflow-y:auto;z-index:1030;transition:left .25s;
+}
+.sidebar .brand{display:flex;align-items:center;gap:10px;padding:6px 8px 20px;}
+.sidebar .brand .logo{width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,var(--p),#7C3AED);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;}
+.sidebar .brand span{font-weight:800;font-size:17px;}
+.nav-item-bma{
+  display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:10px;color:#4B5563;
+  text-decoration:none;font-size:14px;font-weight:600;margin-bottom:2px;
+}
+.nav-item-bma i{width:18px;text-align:center;color:#9CA3AF;}
+.nav-item-bma:hover{background:#F3F4F6;color:var(--p);}
+.nav-item-bma.active{background:rgba(79,70,229,0.1);color:var(--p);}
+.nav-item-bma.active i{color:var(--p);}
+.nav-section-label{font-size:11px;text-transform:uppercase;color:#9CA3AF;font-weight:700;margin:14px 10px 6px;letter-spacing:.04em;}
+.main{margin-left:250px;flex:1;padding:22px 28px 60px;width:100%;}
+.topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;}
+.topbar h4{font-weight:800;margin:0;}
+.topbar .role-badge{font-size:11px;padding:4px 10px;border-radius:20px;background:#EEF2FF;color:var(--p);font-weight:700;text-transform:uppercase;}
+.card-bma{background:#fff;border:none;border-radius:18px;box-shadow:0 2px 10px rgba(17,24,39,0.04);}
+.stat-card{padding:20px;}
+.stat-card .label{font-size:12.5px;color:#6B7280;font-weight:600;}
+.stat-card .value{font-size:26px;font-weight:800;margin-top:4px;}
+.stat-card .sub{font-size:12.5px;color:#9CA3AF;margin-top:2px;}
+.icon-badge{width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:17px;}
+.badge-status{font-size:11.5px;padding:4px 10px;border-radius:20px;font-weight:700;}
+.st-completed,.st-approved,.st-verified,.st-active,.st-matched,.st-valid{background:#DCFCE7;color:#15803D;}
+.st-pending,.st-processing,.st-under_review,.st-review{background:#FEF3C7;color:#92400E;}
+.st-failed,.st-rejected,.st-suspended,.st-frozen,.st-blocked,.st-mismatch,.st-integrity_error{background:#FEE2E2;color:#B91C1C;}
+.st-flagged,.st-on_hold{background:#FFE4E6;color:#9F1239;}
+.table-bma thead th{font-size:12px;text-transform:uppercase;color:#9CA3AF;font-weight:700;border-bottom:1px solid #F1F2F6;}
+.table-bma td{font-size:13.5px;vertical-align:middle;border-bottom:1px solid #F6F7FB;}
+.btn-bma-primary{background:var(--p);border:none;color:#fff;font-weight:700;border-radius:10px;padding:9px 16px;font-size:14px;}
+.btn-bma-primary:hover{background:#4338CA;color:#fff;}
+.btn-bma-outline{background:#fff;border:1px solid #E5E7EB;color:var(--dk);font-weight:600;border-radius:10px;padding:9px 16px;font-size:14px;}
+.form-control,.form-select{border-radius:10px;border:1px solid #E5E7EB;font-size:14px;}
+.qr-box{width:220px;height:220px;background:#fff;border:1px solid #EEF0F5;border-radius:16px;display:flex;align-items:center;justify-content:center;margin:0 auto;}
+.mobile-toggle{display:none;}
+@media (max-width:991px){
+  .sidebar{left:-260px;}
+  .sidebar.open{left:0;}
+  .main{margin-left:0;padding:16px;}
+  .mobile-toggle{display:inline-flex;}
+}
+.notif-dot{width:8px;height:8px;background:var(--d);border-radius:50%;display:inline-block;margin-left:4px;}
+.wallet-hero{background:linear-gradient(135deg,var(--p),#7C3AED);border-radius:18px;color:#fff;padding:26px;}
+.wallet-hero .bmc{font-size:32px;font-weight:800;}
+.wallet-hero .bdt{opacity:.9;font-size:15px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <!-- SIDEBAR -->
+  <div class="sidebar" id="sidebar">
+    <div class="brand"><div class="logo">B</div><span>BMA</span></div>
+
+    <% function navItem(href, icon, label, key){ %>
+      <a class="nav-item-bma <%= page===key?'active':'' %>" href="<%= href %>"><i class="fa-solid <%= icon %>"></i><%= label %></a>
+    <% } %>
+
+    <% if (role==='user') { %>
+      <% navItem('/app/dashboard','fa-house','Home','dashboard') %>
+      <% navItem('/app/wallet','fa-wallet','Wallet','wallet') %>
+      <% navItem('/app/add-money','fa-circle-plus','Add Money','add-money') %>
+      <% navItem('/app/scan-pay','fa-qrcode','Scan & Pay','scan-pay') %>
+      <% navItem('/app/transactions','fa-receipt','Transactions','transactions') %>
+      <% navItem('/app/refunds','fa-rotate-left','Refunds','refunds') %>
+      <% navItem('/app/disputes','fa-triangle-exclamation','Disputes','disputes') %>
+      <% navItem('/app/kyc','fa-id-card','KYC','kyc') %>
+      <% navItem('/app/notifications','fa-bell','Notifications','notifications') %>
+      <div class="nav-section-label">Account</div>
+      <% navItem('/app/profile','fa-user','Profile','profile') %>
+      <% navItem('/app/security','fa-shield-halved','Security','security') %>
+    <% } else if (role==='merchant') { %>
+      <% navItem('/app/dashboard','fa-house','Dashboard','dashboard') %>
+      <% navItem('/app/qr','fa-qrcode','QR','qr') %>
+      <% navItem('/app/transactions','fa-receipt','Transactions','transactions') %>
+      <% navItem('/app/orders','fa-box','Orders','orders') %>
+      <% navItem('/app/wallet','fa-wallet','Wallet','wallet') %>
+      <% navItem('/app/settlement','fa-money-bill-transfer','Settlement','settlement') %>
+      <% navItem('/app/auto-settlement','fa-gears','Auto Settlement','auto-settlement') %>
+      <% navItem('/app/refunds','fa-rotate-left','Refunds','refunds') %>
+      <% navItem('/app/reports','fa-chart-line','Reports','reports') %>
+      <div class="nav-section-label">Account</div>
+      <% navItem('/app/profile','fa-user','Profile','profile') %>
+      <% navItem('/app/kyb','fa-building','KYB','kyb') %>
+      <% navItem('/app/notifications','fa-bell','Notifications','notifications') %>
+    <% } else if (role==='admin') { %>
+      <% navItem('/app/dashboard','fa-house','Dashboard','dashboard') %>
+      <% navItem('/app/users','fa-users','Users','users') %>
+      <% navItem('/app/merchants','fa-shop','Merchants','merchants') %>
+      <% navItem('/app/kyc','fa-id-card','KYC','kyc') %>
+      <% navItem('/app/kyb','fa-building','KYB','kyb') %>
+      <% navItem('/app/transactions','fa-receipt','Transactions','transactions') %>
+      <% navItem('/app/deposits','fa-circle-plus','Deposits','deposits') %>
+      <% navItem('/app/settlements','fa-money-bill-transfer','Settlements','settlements') %>
+      <% navItem('/app/refunds','fa-rotate-left','Refunds','refunds') %>
+      <% navItem('/app/disputes','fa-triangle-exclamation','Disputes','disputes') %>
+      <div class="nav-section-label">Finance & Risk</div>
+      <% navItem('/app/reserve','fa-vault','Reserve','reserve') %>
+      <% navItem('/app/reconciliation','fa-scale-balanced','Reconciliation','reconciliation') %>
+      <% navItem('/app/risk-alerts','fa-radiation','Risk Alerts','risk-alerts') %>
+      <div class="nav-section-label">System</div>
+      <% navItem('/app/notifications','fa-bell','Notifications','notifications') %>
+      <% navItem('/app/audit-logs','fa-clipboard-list','Audit Logs','audit-logs') %>
+      <% navItem('/app/system-settings','fa-sliders','System Settings','system-settings') %>
+      <% navItem('/app/payment-providers','fa-credit-card','Payment Providers','payment-providers') %>
+      <% navItem('/app/settlement-providers','fa-landmark','Settlement Providers','settlement-providers') %>
+    <% } %>
+    <hr class="mt-3 mb-2">
+    <form method="POST" action="/logout">
+      <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+      <button class="nav-item-bma w-100 border-0 bg-transparent text-start" type="submit" style="color:#EF4444;">
+        <i class="fa-solid fa-right-from-bracket" style="color:#EF4444;"></i> Logout
+      </button>
+    </form>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="topbar">
+      <div class="d-flex align-items-center gap-2">
+        <button class="btn btn-light mobile-toggle d-lg-none" onclick="document.getElementById('sidebar').classList.toggle('open')"><i class="fa-solid fa-bars"></i></button>
+        <h4><%= page.replace(/-/g,' ').replace(/\b\w/g, c=>c.toUpperCase()) %></h4>
+      </div>
+      <div class="d-flex align-items-center gap-3">
+        <span class="role-badge"><%= role %></span>
+        <a href="/app/notifications" class="text-dark position-relative text-decoration-none">
+          <i class="fa-regular fa-bell fs-5"></i>
+          <% if (typeof unreadCount !== 'undefined' && unreadCount > 0) { %><span class="notif-dot"></span><% } %>
+        </a>
+        <span class="fw-semibold small"><%= user.full_name %></span>
+      </div>
+    </div>
+
+    <% if (typeof flash !== 'undefined' && flash && flash.message) { %>
+      <div class="alert alert-<%= flash.type||'info' %> rounded-4"><%= flash.message %></div>
+    <% } %>
+
+    <%
+      const money = (v) => Number(v||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+      const bdt = (v) => Number(v||0).toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:0});
+      const statusClass = (s) => 'st-'+String(s||'').toLowerCase().replace(/\s+/g,'_');
+    %>
+
+    <!-- ============ USER: DASHBOARD ============ -->
+    <% if (page==='dashboard' && role==='user') { %>
+      <div class="row g-3">
+        <div class="col-lg-6">
+          <div class="wallet-hero">
+            <div class="small mb-1 opacity-75">BMA Wallet</div>
+            <div class="bmc"><%= money(data.wallet.balance_bmc) %> BMC</div>
+            <div class="bdt">&asymp; <%= bdt(data.wallet.balance_bdt) %> BDT</div>
+            <div class="d-flex gap-2 mt-3">
+              <a href="/app/add-money" class="btn btn-light btn-sm fw-semibold rounded-3"><i class="fa-solid fa-circle-plus me-1"></i>Add Money</a>
+              <a href="/app/scan-pay" class="btn btn-light btn-sm fw-semibold rounded-3"><i class="fa-solid fa-qrcode me-1"></i>Scan & Pay</a>
+              <a href="/app/transactions" class="btn btn-outline-light btn-sm fw-semibold rounded-3">Transactions</a>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-3 col-6">
+          <div class="card-bma stat-card h-100">
+            <div class="label">This Month Spent</div>
+            <div class="value"><%= money(data.monthSpentBmc) %> BMC</div>
+            <div class="sub"><%= bdt(data.monthSpentBdt) %> BDT</div>
+          </div>
+        </div>
+        <div class="col-lg-3 col-6">
+          <div class="card-bma stat-card h-100">
+            <div class="label">Pending Refunds</div>
+            <div class="value"><%= data.pendingRefunds %></div>
+            <div class="sub">Awaiting review</div>
+          </div>
+        </div>
+      </div>
+      <div class="card-bma p-3 mt-3">
+        <h6 class="fw-bold mb-3">Recent Transactions</h6>
+        <div class="table-responsive">
+        <table class="table table-bma mb-0">
+          <thead><tr><th>Merchant</th><th>Transaction ID</th><th>BMC</th><th>BDT</th><th>Status</th><th>Date</th></tr></thead>
+          <tbody>
+          <% data.recentTx.forEach(tx=>{ %>
+            <tr>
+              <td><%= tx.merchant_name||'—' %></td>
+              <td class="text-muted"><%= tx.tx_id %></td>
+              <td><%= money(tx.amount_bmc) %></td>
+              <td><%= bdt(tx.amount_bdt) %></td>
+              <td><span class="badge-status <%= statusClass(tx.status) %>"><%= tx.status %></span></td>
+              <td class="text-muted"><%= tx.date %></td>
+            </tr>
+          <% }) %>
+          <% if (!data.recentTx.length) { %><tr><td colspan="6" class="text-center text-muted py-3">No transactions yet</td></tr><% } %>
+          </tbody>
+        </table>
+        </div>
+      </div>
+    <% } %>
+
+    <!-- ============ WALLET (user/merchant) ============ -->
+    <% if (page==='wallet') { %>
+      <div class="row g-3">
+        <div class="col-lg-6">
+          <div class="wallet-hero">
+            <div class="small mb-1 opacity-75"><%= role==='merchant'?'Merchant Wallet':'BMA Wallet' %></div>
+            <div class="bmc"><%= money(data.wallet.balance_bmc) %> BMC</div>
+            <div class="bdt">&asymp; <%= bdt(data.wallet.balance_bdt) %> BDT</div>
+          </div>
+        </div>
+        <% if (role==='merchant') { %>
+        <div class="col-lg-3 col-6">
+          <div class="card-bma stat-card h-100"><div class="label">Pending Balance</div><div class="value"><%= money(data.pendingBalance) %></div><div class="sub">BMC in escrow</div></div>
+        </div>
+        <div class="col-lg-3 col-6">
+          <div class="card-bma stat-card h-100"><div class="label">Available Balance</div><div class="value"><%= money(data.availableBalance) %></div><div class="sub">Ready to settle</div></div>
+        </div>
+        <% } %>
+      </div>
+      <div class="card-bma p-3 mt-3">
+        <h6 class="fw-bold mb-3">Ledger History</h6>
+        <div class="table-responsive">
+        <table class="table table-bma mb-0">
+          <thead><tr><th>Date</th><th>Type</th><th>Direction</th><th>BMC</th><th>BDT</th><th>Balance After</th><th>Reference</th></tr></thead>
+          <tbody>
+          <% data.ledger.forEach(l=>{ %>
+            <tr>
+              <td class="text-muted"><%= l.date %></td>
+              <td><%= l.entry_type %></td>
+              <td><span class="badge-status <%= l.direction==='credit'?'st-completed':'st-failed' %>"><%= l.direction %></span></td>
+              <td><%= money(l.amount_bmc) %></td>
+              <td><%= bdt(l.amount_bdt) %></td>
+              <td><%= money(l.balance_after) %></td>
+              <td class="text-muted"><%= l.reference %></td>
+            </tr>
+          <% }) %>
+          <% if (!data.ledger.length) { %><tr><td colspan="7" class="text-center text-muted py-3">No ledger entries</td></tr><% } %>
+          </tbody>
+        </table>
+        </div>
+      </div>
+    <% } %>
+
+    <!-- ============ ADD MONEY ============ -->
+    <% if (page==='add-money') { %>
+      <div class="row g-3">
+        <div class="col-lg-6">
+          <div class="card-bma p-4">
+            <h6 class="fw-bold mb-3">Add Money to Wallet</h6>
+            <form method="POST" action="/api/deposits/create">
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+              <label class="form-label small fw-semibold">Select Amount (BDT)</label>
+              <div class="d-flex flex-wrap gap-2 mb-3">
+                <% [100,500,1000,5000].forEach(a=>{ %>
+                  <input type="radio" class="btn-check" name="preset" id="amt<%=a%>" value="<%=a%>" autocomplete="off">
+                  <label class="btn btn-bma-outline" for="amt<%=a%>"><%=a%> BDT</label>
+                <% }) %>
+              </div>
+              <label class="form-label small fw-semibold">Custom Amount (BDT)</label>
+              <input type="number" min="1" step="1" name="amount_bdt" id="customAmt" class="form-control mb-3" placeholder="Enter amount">
+              <div class="alert alert-light border rounded-3 small">Rate: 1 BMC = <%= data.coinRate %> BDT. You will receive approximately <b id="bmcPreview">0</b> BMC.</div>
+              <button class="btn btn-bma-primary w-100" type="submit"><i class="fa-solid fa-lock me-1"></i> Proceed to Secure Payment</button>
+              <p class="text-muted small mt-2 mb-0">You will be redirected to a secure payment provider. Your balance updates only after the provider confirms payment via webhook.</p>
+            </form>
+          </div>
+        </div>
+        <div class="col-lg-6">
+          <div class="card-bma p-3">
+            <h6 class="fw-bold mb-3">Pending Deposits</h6>
+            <table class="table table-bma mb-0">
+              <thead><tr><th>Ref</th><th>BDT</th><th>Status</th><th>Date</th></tr></thead>
+              <tbody>
+              <% (data.deposits||[]).forEach(d=>{ %>
+                <tr><td class="text-muted"><%= d.reference %></td><td><%= bdt(d.amount_bdt) %></td><td><span class="badge-status <%= statusClass(d.status) %>"><%= d.status %></span></td><td class="text-muted"><%= d.date %></td></tr>
+              <% }) %>
+              <% if(!(data.deposits||[]).length){ %><tr><td colspan="4" class="text-center text-muted py-3">No deposits yet</td></tr><% } %>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <script>
+      document.querySelectorAll('input[name=preset]').forEach(r=>r.addEventListener('change',()=>{document.getElementById('customAmt').value=r.value;updatePreview();}));
+      document.getElementById('customAmt').addEventListener('input',updatePreview);
+      function updatePreview(){
+        const v = parseFloat(document.getElementById('customAmt').value)||0;
+        document.getElementById('bmcPreview').innerText = (v/<%= data.coinRate %>).toFixed(2);
+      }
+      </script>
+    <% } %>
+
+    <!-- ============ SCAN & PAY ============ -->
+    <% if (page==='scan-pay') { %>
+      <div class="row g-3">
+        <div class="col-lg-6">
+          <div class="card-bma p-4 text-center">
+            <h6 class="fw-bold mb-3">Scan Merchant QR</h6>
+            <div id="qr-reader" style="max-width:320px;margin:0 auto;"></div>
+            <p class="text-muted small mt-3">Or enter merchant payment code manually</p>
+            <form method="GET" action="/app/scan-pay">
+              <input type="text" name="ref" class="form-control mb-2" placeholder="Merchant payment reference">
+              <button class="btn btn-bma-outline w-100" type="submit">Lookup</button>
+            </form>
+          </div>
+        </div>
+        <div class="col-lg-6">
+          <% if (data.merchant) { %>
+          <div class="card-bma p-4">
+            <h6 class="fw-bold mb-1">Merchant</h6>
+            <div class="fs-5 fw-bold mb-3"><%= data.merchant.business_name %></div>
+            <form method="POST" action="/api/qr/pay">
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+              <input type="hidden" name="merchant_ref" value="<%= data.merchant.ref %>">
+              <label class="form-label small fw-semibold">You Pay (BDT)</label>
+              <input type="number" name="amount_bdt" id="payBdt" class="form-control mb-2" min="1" required oninput="document.getElementById('payBmc').innerText=(this.value/<%=data.coinRate%>).toFixed(2)">
+              <div class="alert alert-light border rounded-3 small">Equivalent: <b id="payBmc">0</b> BMC &middot; Rate: 1 BMC = <%= data.coinRate %> BDT</div>
+              <button class="btn btn-bma-primary w-100" type="submit"><i class="fa-solid fa-shield-halved me-1"></i> Confirm & Pay</button>
+            </form>
+          </div>
+          <% } else { %>
+          <div class="card-bma p-4 text-center text-muted">Scan or enter a merchant reference to begin payment.</div>
+          <% } %>
+        </div>
+      </div>
+    <% } %>
+
+    <!-- ============ MERCHANT: QR ============ -->
+    <% if (page==='qr' && role==='merchant') { %>
+      <div class="row g-3">
+        <div class="col-lg-5">
+          <div class="card-bma p-4 text-center">
+            <h6 class="fw-bold mb-3">Your Payment QR</h6>
+            <div class="qr-box"><img src="<%= data.qrDataUrl %>" alt="Merchant QR" style="max-width:200px;max-height:200px;"></div>
+            <p class="text-muted small mt-3 mb-0">Reference: <%= data.merchantRef %></p>
+            <% if (data.merchantStatus !== 'Approved') { %>
+              <div class="alert alert-warning small mt-3 mb-0">Your merchant account is <b><%= data.merchantStatus %></b>. You cannot receive payments until approved.</div>
+            <% } %>
+          </div>
+        </div>
+        <div class="col-lg-7">
+          <div class="card-bma p-3">
+            <h6 class="fw-bold mb-3">Recent Payments Received</h6>
+            <table class="table table-bma mb-0">
+              <thead><tr><th>Payer Ref</th><th>BMC</th><th>BDT</th><th>Status</th><th>Date</th></tr></thead>
+              <tbody>
+              <% (data.recentPayments||[]).forEach(p=>{ %>
+                <tr><td class="text-muted"><%= p.user_ref %></td><td><%= money(p.amount_bmc) %></td><td><%= bdt(p.amount_bdt) %></td><td><span class="badge-status <%= statusClass(p.status) %>"><%= p.status %></span></td><td class="text-muted"><%= p.date %></td></tr>
+              <% }) %>
+              <% if(!(data.recentPayments||[]).length){ %><tr><td colspan="5" class="text-center text-muted py-3">No payments yet</td></tr><% } %>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    <% } %>
+
+    <!-- ============ GENERIC DASHBOARD (merchant/admin) ============ -->
+    <% if (page==='dashboard' && role==='merchant') { %>
+      <div class="row g-3">
+        <div class="col-lg-3 col-6"><div class="card-bma stat-card"><div class="label">Available Balance</div><div class="value"><%= money(data.availableBalance) %> BMC</div><div class="sub"><%= bdt(data.availableBalance*data.coinRate) %> BDT</div></div></div>
+        <div class="col-lg-3 col-6"><div class="card-bma stat-card"><div class="label">Pending Balance</div><div class="value"><%= money(data.pendingBalance) %> BMC</div><div class="sub">In escrow</div></div></div>
+        <div class="col-lg-3 col-6"><div class="card-bma stat-card"><div class="label">Today's Sales</div><div class="value"><%= money(data.todaySales) %> BMC</div></div></div>
+        <div class="col-lg-3 col-6"><div class="card-bma stat-card"><div class="label">Monthly Sales</div><div class="value"><%= money(data.monthSales) %> BMC</div></div></div>
+      </div>
+      <div class="row g-3 mt-1">
+        <div class="col-lg-8">
+          <div class="card-bma p-3"><h6 class="fw-bold mb-3">Sales Trend</h6><canvas id="salesChart" height="90"></canvas></div>
+        </div>
+        <div class="col-lg-4">
+          <div class="card-bma p-3">
+            <h6 class="fw-bold mb-3">Settlement</h6>
+            <div class="d-flex justify-content-between small mb-2"><span>Pending Settlement</span><b><%= money(data.pendingSettlement) %> BMC</b></div>
+            <div class="d-flex justify-content-between small mb-3"><span>Completed Settlement</span><b><%= money(data.completedSettlement) %> BMC</b></div>
+            <a href="/app/settlement" class="btn btn-bma-outline w-100">Manage Settlement</a>
+          </div>
+        </div>
+      </div>
+      <script>
+      new Chart(document.getElementById('salesChart'),{type:'line',data:{
+        labels: <%- JSON.stringify(data.salesLabels||[]) %>,
+        datasets:[{label:'BMC Sales',data:<%- JSON.stringify(data.salesSeries||[]) %>,borderColor:'#4F46E5',backgroundColor:'rgba(79,70,229,0.08)',fill:true,tension:.35}]
+      },options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}}}});
+      </script>
+    <% } %>
+
+    <% if (page==='dashboard' && role==='admin') { %>
+      <div class="row g-3">
+        <div class="col-lg-3 col-6"><div class="card-bma stat-card"><div class="label">Users</div><div class="value"><%= data.usersCount %></div></div></div>
+        <div class="col-lg-3 col-6"><div class="card-bma stat-card"><div class="label">Merchants</div><div class="value"><%= data.merchantsCount %></div></div></div>
+        <div class="col-lg-3 col-6"><div class="card-bma stat-card"><div class="label">Outstanding BMC</div><div class="value"><%= money(data.outstandingBmc) %></div></div></div>
+        <div class="col-lg-3 col-6"><div class="card-bma stat-card"><div class="label">Expected Reserve</div><div class="value"><%= bdt(data.expectedReserveBdt) %> BDT</div></div></div>
+      </div>
+      <div class="row g-3 mt-1">
+        <div class="col-lg-8">
+          <div class="card-bma p-3"><h6 class="fw-bold mb-3">Platform Volume</h6><canvas id="volChart" height="90"></canvas></div>
+        </div>
+        <div class="col-lg-4">
+          <div class="card-bma p-3">
+            <h6 class="fw-bold mb-3">Attention Needed</h6>
+            <div class="d-flex justify-content-between small mb-2"><span>Open Disputes</span><b><%= data.openDisputes %></b></div>
+            <div class="d-flex justify-content-between small mb-2"><span>Risk Alerts</span><b class="text-danger"><%= data.riskAlerts %></b></div>
+            <div class="d-flex justify-content-between small mb-2"><span>Pending KYC</span><b><%= data.pendingKyc %></b></div>
+            <div class="d-flex justify-content-between small"><span>Pending KYB</span><b><%= data.pendingKyb %></b></div>
+          </div>
+        </div>
+      </div>
+      <script>
+      new Chart(document.getElementById('volChart'),{type:'bar',data:{
+        labels: <%- JSON.stringify(data.volLabels||[]) %>,
+        datasets:[{label:'BMC Volume',data:<%- JSON.stringify(data.volSeries||[]) %>,backgroundColor:'#4F46E5',borderRadius:6}]
+      },options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}}}});
+      </script>
+    <% } %>
+
+    <!-- ============ TRANSACTIONS (all roles) ============ -->
+    <% if (page==='transactions') { %>
+      <div class="card-bma p-3">
+        <form class="row g-2 mb-3" method="GET">
+          <div class="col-md-3"><input type="date" name="date" class="form-control" value="<%= query.date||'' %>"></div>
+          <div class="col-md-3"><select name="status" class="form-select"><option value="">All Status</option><% ['Pending','Processing','Completed','Failed','Reversed'].forEach(s=>{ %><option value="<%=s%>" <%= query.status===s?'selected':'' %>><%=s%></option><% }) %></select></div>
+          <div class="col-md-3"><select name="type" class="form-select"><option value="">All Types</option><% ['Deposit','Payment','Refund','Settlement','Adjustment'].forEach(s=>{ %><option value="<%=s%>" <%= query.type===s?'selected':'' %>><%=s%></option><% }) %></select></div>
+          <div class="col-md-3"><button class="btn btn-bma-outline w-100" type="submit">Filter</button></div>
+        </form>
+        <div class="table-responsive">
+        <table class="table table-bma mb-0">
+          <thead><tr><th>Transaction ID</th><th>Type</th><th>Merchant/User</th><th>BMC</th><th>BDT</th><th>Rate</th><th>Status</th><th>Date</th></tr></thead>
+          <tbody>
+          <% data.transactions.forEach(t=>{ %>
+            <tr>
+              <td class="text-muted"><a href="/app/transactions/<%= t.tx_id %>"><%= t.tx_id %></a></td>
+              <td><%= t.type %></td>
+              <td><%= t.counterparty||'—' %></td>
+              <td><%= money(t.amount_bmc) %></td>
+              <td><%= bdt(t.amount_bdt) %></td>
+              <td><%= t.rate_bdt %></td>
+              <td><span class="badge-status <%= statusClass(t.status) %>"><%= t.status %></span></td>
+              <td class="text-muted"><%= t.date %></td>
+            </tr>
+          <% }) %>
+          <% if(!data.transactions.length){ %><tr><td colspan="8" class="text-center text-muted py-4">No transactions found</td></tr><% } %>
+          </tbody>
+        </table>
+        </div>
+      </div>
+    <% } %>
+
+    <!-- ============ TRANSACTION DETAIL / RECEIPT ============ -->
+    <% if (page==='transaction-detail') { %>
+      <div class="row g-3 justify-content-center">
+        <div class="col-lg-6">
+          <div class="card-bma p-4 text-center">
+            <% if (data.tx.status==='Completed') { %>
+              <i class="fa-solid fa-circle-check text-success" style="font-size:44px;"></i>
+              <h5 class="fw-bold mt-2 mb-3">Payment Successful</h5>
+            <% } else { %>
+              <i class="fa-solid fa-circle-info text-warning" style="font-size:44px;"></i>
+              <h5 class="fw-bold mt-2 mb-3">Transaction <%= data.tx.status %></h5>
+            <% } %>
+            <div class="text-start border-top pt-3 mt-2">
+              <div class="d-flex justify-content-between mb-2"><span class="text-muted">Merchant</span><b><%= data.tx.counterparty||'—' %></b></div>
+              <div class="d-flex justify-content-between mb-2"><span class="text-muted">Amount</span><b><%= money(data.tx.amount_bmc) %> BMC</b></div>
+              <div class="d-flex justify-content-between mb-2"><span class="text-muted">BDT Equivalent</span><b><%= bdt(data.tx.amount_bdt) %> BDT</b></div>
+              <div class="d-flex justify-content-between mb-2"><span class="text-muted">Rate</span><b>1 BMC = <%= data.tx.rate_bdt %> BDT</b></div>
+              <div class="d-flex justify-content-between mb-2"><span class="text-muted">Transaction ID</span><b><%= data.tx.tx_id %></b></div>
+              <div class="d-flex justify-content-between mb-2"><span class="text-muted">Date/Time</span><b><%= data.tx.date %></b></div>
+              <div class="d-flex justify-content-between"><span class="text-muted">Status</span><span class="badge-status <%= statusClass(data.tx.status) %>"><%= data.tx.status %></span></div>
+            </div>
+            <button class="btn btn-bma-outline w-100 mt-4" onclick="window.print()"><i class="fa-solid fa-print me-1"></i> Print Receipt</button>
+            <% if (role==='user' && data.tx.type==='Payment' && data.tx.status==='Completed') { %>
+            <a href="/app/refunds/new?tx=<%= data.tx.tx_id %>" class="btn btn-link w-100 mt-2">Request Refund</a>
+            <% } %>
+          </div>
+        </div>
+      </div>
+    <% } %>
+
+    <!-- ============ REFUNDS ============ -->
+    <% if (page==='refunds') { %>
+      <div class="card-bma p-3">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h6 class="fw-bold mb-0">Refunds</h6>
+          <% if (role==='user') { %><a href="/app/refunds/new" class="btn btn-bma-primary btn-sm">New Refund Request</a><% } %>
+        </div>
+        <table class="table table-bma mb-0">
+          <thead><tr><th>Ref</th><th>Original Tx</th><th>BMC</th><th>Status</th><th>Requested</th><% if(role!=='user'){ %><th>Action</th><% } %></tr></thead>
+          <tbody>
+          <% data.refunds.forEach(r=>{ %>
+            <tr>
+              <td class="text-muted"><%= r.ref %></td><td><%= r.original_tx %></td><td><%= money(r.amount_bmc) %></td>
+              <td><span class="badge-status <%= statusClass(r.status) %>"><%= r.status %></span></td><td class="text-muted"><%= r.date %></td>
+              <% if(role==='admin' && r.status==='Requested'){ %>
+              <td>
+                <form method="POST" action="/api/refunds/<%=r.ref%>/decision" class="d-flex gap-1">
+                  <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                  <button name="decision" value="approve" class="btn btn-sm btn-bma-primary">Approve</button>
+                  <button name="decision" value="reject" class="btn btn-sm btn-bma-outline">Reject</button>
+                </form>
+              </td>
+              <% } else if(role!=='user') { %><td>—</td><% } %>
+            </tr>
+          <% }) %>
+          <% if(!data.refunds.length){ %><tr><td colspan="6" class="text-center text-muted py-4">No refunds</td></tr><% } %>
+          </tbody>
+        </table>
+      </div>
+      <% if (page==='refunds' && role==='user' && query.newForm) { %>
+      <div class="card-bma p-4 mt-3">
+        <h6 class="fw-bold mb-3">Request Refund</h6>
+        <form method="POST" action="/api/refunds/create">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <input type="text" name="tx_id" class="form-control mb-2" placeholder="Transaction ID" value="<%= query.tx||'' %>" required>
+          <textarea name="reason" class="form-control mb-2" placeholder="Reason for refund" required></textarea>
+          <button class="btn btn-bma-primary w-100" type="submit">Submit Request</button>
+        </form>
+      </div>
+      <% } %>
+    <% } %>
+
+    <!-- ============ DISPUTES ============ -->
+    <% if (page==='disputes') { %>
+      <div class="card-bma p-3">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h6 class="fw-bold mb-0">Disputes</h6>
+          <% if (role==='user') { %>
+          <button class="btn btn-bma-primary btn-sm" data-bs-toggle="modal" data-bs-target="#newDisputeModal">New Dispute</button>
+          <% } %>
+        </div>
+        <table class="table table-bma mb-0">
+          <thead><tr><th>Ref</th><th>Transaction</th><th>Status</th><th>Opened</th><th>Action</th></tr></thead>
+          <tbody>
+          <% data.disputes.forEach(d=>{ %>
+            <tr>
+              <td class="text-muted"><%= d.ref %></td><td><%= d.tx_id %></td>
+              <td><span class="badge-status <%= statusClass(d.status) %>"><%= d.status %></span></td><td class="text-muted"><%= d.date %></td>
+              <td><a href="/app/disputes/<%=d.ref%>" class="btn btn-sm btn-bma-outline">View</a></td>
+            </tr>
+          <% }) %>
+          <% if(!data.disputes.length){ %><tr><td colspan="5" class="text-center text-muted py-4">No disputes</td></tr><% } %>
+          </tbody>
+        </table>
+      </div>
+      <div class="modal fade" id="newDisputeModal" tabindex="-1">
+        <div class="modal-dialog"><div class="modal-content rounded-4">
+          <div class="modal-body p-4">
+            <h6 class="fw-bold mb-3">Open a Dispute</h6>
+            <form method="POST" action="/api/disputes/create">
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+              <input type="text" name="tx_id" class="form-control mb-2" placeholder="Transaction ID" required>
+              <textarea name="reason" class="form-control mb-3" placeholder="Describe the issue" required></textarea>
+              <button class="btn btn-bma-primary w-100" type="submit">Submit</button>
+            </form>
+          </div>
+        </div></div>
+      </div>
+    <% } %>
+
+    <!-- ============ ORDERS (merchant) ============ -->
+    <% if (page==='orders') { %>
+      <div class="card-bma p-3">
+        <h6 class="fw-bold mb-3">Orders</h6>
+        <table class="table table-bma mb-0">
+          <thead><tr><th>Order ID</th><th>Total BMC</th><th>Total BDT</th><th>Payment</th><th>Fulfillment</th><th>Date</th></tr></thead>
+          <tbody>
+          <% data.orders.forEach(o=>{ %>
+            <tr><td class="text-muted"><%= o.order_id %></td><td><%= money(o.total_bmc) %></td><td><%= bdt(o.total_bdt) %></td>
+            <td><span class="badge-status <%= statusClass(o.payment_status) %>"><%= o.payment_status %></span></td>
+            <td><span class="badge-status <%= statusClass(o.fulfillment_status) %>"><%= o.fulfillment_status %></span></td>
+            <td class="text-muted"><%= o.date %></td></tr>
+          <% }) %>
+          <% if(!data.orders.length){ %><tr><td colspan="6" class="text-center text-muted py-4">No orders</td></tr><% } %>
+          </tbody>
+        </table>
+      </div>
+    <% } %>
+
+    <!-- ============ SETTLEMENT (merchant) ============ -->
+    <% if (page==='settlement') { %>
+      <div class="row g-3">
+        <div class="col-lg-4"><div class="card-bma stat-card"><div class="label">Available Balance</div><div class="value"><%= money(data.availableBalance) %> BMC</div></div></div>
+        <div class="col-lg-4"><div class="card-bma stat-card"><div class="label">Minimum Settlement</div><div class="value"><%= money(data.minSettlement) %> BMC</div></div></div>
+        <div class="col-lg-4"><div class="card-bma stat-card"><div class="label">Auto Settlement</div><div class="value"><%= data.autoEnabled ? 'ON' : 'OFF' %></div></div></div>
+      </div>
+      <div class="card-bma p-3 mt-3">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h6 class="fw-bold mb-0">Settlement History</h6>
+          <form method="POST" action="/api/settlements/request">
+            <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+            <button class="btn btn-bma-primary btn-sm" <%= data.availableBalance < data.minSettlement ? 'disabled' : '' %>>Request Settlement Now</button>
+          </form>
+        </div>
+        <table class="table table-bma mb-0">
+          <thead><tr><th>Ref</th><th>BMC</th><th>BDT</th><th>Status</th><th>Date</th></tr></thead>
+          <tbody>
+          <% data.settlements.forEach(s=>{ %>
+            <tr><td class="text-muted"><%= s.ref %></td><td><%= money(s.amount_bmc) %></td><td><%= bdt(s.amount_bdt) %></td>
+            <td><span class="badge-status <%= statusClass(s.status) %>"><%= s.status %></span></td><td class="text-muted"><%= s.date %></td></tr>
+          <% }) %>
+          <% if(!data.settlements.length){ %><tr><td colspan="5" class="text-center text-muted py-4">No settlements yet</td></tr><% } %>
+          </tbody>
+        </table>
+      </div>
+    <% } %>
+
+    <!-- ============ AUTO SETTLEMENT SETTINGS ============ -->
+    <% if (page==='auto-settlement') { %>
+      <div class="card-bma p-4" style="max-width:560px;">
+        <h6 class="fw-bold mb-3">Auto Settlement Configuration</h6>
+        <form method="POST" action="/api/merchant/auto-settlement">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <div class="form-check form-switch mb-3">
+            <input class="form-check-input" type="checkbox" name="enabled" id="autoSw" <%= data.settings.enabled?'checked':'' %>>
+            <label class="form-check-label fw-semibold" for="autoSw">Enable Auto Settlement</label>
+          </div>
+          <label class="form-label small fw-semibold">Frequency</label>
+          <select name="frequency" class="form-select mb-3">
+            <% ['Daily','Weekly','Monthly'].forEach(f=>{ %><option value="<%=f%>" <%= data.settings.frequency===f?'selected':'' %>><%=f%></option><% }) %>
+          </select>
+          <label class="form-label small fw-semibold">Minimum Settlement Amount (BMC)</label>
+          <input type="number" name="min_amount" class="form-control mb-3" value="<%= data.settings.min_amount %>" min="1">
+          <label class="form-label small fw-semibold">Verified Settlement Account</label>
+          <input type="text" class="form-control mb-3" value="<%= data.settings.account_masked||'Not linked' %>" disabled>
+          <button class="btn btn-bma-primary w-100" type="submit">Save Settings</button>
+        </form>
+      </div>
+    <% } %>
+
+    <!-- ============ REPORTS (merchant) ============ -->
+    <% if (page==='reports') { %>
+      <div class="card-bma p-3"><h6 class="fw-bold mb-3">Sales Report</h6><canvas id="repChart" height="90"></canvas></div>
+      <script>
+      new Chart(document.getElementById('repChart'),{type:'bar',data:{labels:<%- JSON.stringify(data.labels||[]) %>,datasets:[{label:'BMC',data:<%- JSON.stringify(data.series||[]) %>,backgroundColor:'#10B981',borderRadius:6}]},options:{plugins:{legend:{display:false}}}});
+      </script>
+    <% } %>
+
+    <!-- ============ KYC ============ -->
+    <% if (page==='kyc') { %>
+      <% if (role==='user') { %>
+      <div class="card-bma p-4" style="max-width:640px;">
+        <h6 class="fw-bold mb-3">Identity Verification (KYC)</h6>
+        <div class="mb-3">Status: <span class="badge-status <%= statusClass(data.kyc.status) %>"><%= data.kyc.status %></span></div>
+        <form method="POST" action="/api/kyc/submit">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <input type="text" name="date_of_birth" class="form-control mb-2" placeholder="Date of Birth (YYYY-MM-DD)" required>
+          <input type="text" name="address" class="form-control mb-2" placeholder="Address" required>
+          <select name="identification_type" class="form-select mb-2" required>
+            <option value="">ID Type</option><option>NID</option><option>Passport</option><option>Driving License</option>
+          </select>
+          <input type="text" name="identification_number" class="form-control mb-2" placeholder="ID Number" required>
+          <input type="file" class="form-control mb-3" disabled>
+          <div class="form-text mb-3">Document upload connects to secure external object storage in production.</div>
+          <button class="btn btn-bma-primary w-100" type="submit">Submit for Verification</button>
+        </form>
+      </div>
+      <% } else { %>
+      <div class="card-bma p-3">
+        <h6 class="fw-bold mb-3">KYC Review Queue</h6>
+        <table class="table table-bma mb-0">
+          <thead><tr><th>User</th><th>ID Type</th><th>Status</th><th>Submitted</th><th>Action</th></tr></thead>
+          <tbody>
+          <% data.kycList.forEach(k=>{ %>
+            <tr><td><%= k.full_name %></td><td><%= k.identification_type %></td>
+            <td><span class="badge-status <%= statusClass(k.status) %>"><%= k.status %></span></td><td class="text-muted"><%= k.date %></td>
+            <td>
+              <% if(k.status==='Pending' || k.status==='Under Review'){ %>
+              <form method="POST" action="/api/admin/kyc/<%=k.id%>/decision" class="d-flex gap-1">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                <button name="decision" value="approve" class="btn btn-sm btn-bma-primary">Verify</button>
+                <button name="decision" value="reject" class="btn btn-sm btn-bma-outline">Reject</button>
+              </form>
+              <% } else { %>—<% } %>
+            </td></tr>
+          <% }) %>
+          <% if(!data.kycList.length){ %><tr><td colspan="5" class="text-center text-muted py-4">Nothing pending</td></tr><% } %>
+          </tbody>
+        </table>
+      </div>
+      <% } %>
+    <% } %>
+
+    <!-- ============ KYB ============ -->
+    <% if (page==='kyb') { %>
+      <% if (role==='merchant') { %>
+      <div class="card-bma p-4" style="max-width:640px;">
+        <h6 class="fw-bold mb-3">Business Verification (KYB)</h6>
+        <div class="mb-3">Status: <span class="badge-status <%= statusClass(data.kyb.status) %>"><%= data.kyb.status %></span></div>
+        <form method="POST" action="/api/kyb/submit">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <input type="text" name="business_name" class="form-control mb-2" placeholder="Business Name" required>
+          <input type="text" name="business_type" class="form-control mb-2" placeholder="Business Type" required>
+          <input type="text" name="business_address" class="form-control mb-2" placeholder="Business Address" required>
+          <input type="text" name="trade_license_number" class="form-control mb-3" placeholder="Trade License Number" required>
+          <button class="btn btn-bma-primary w-100" type="submit">Submit for Verification</button>
+        </form>
+      </div>
+      <% } else { %>
+      <div class="card-bma p-3">
+        <h6 class="fw-bold mb-3">KYB Review Queue</h6>
+        <table class="table table-bma mb-0">
+          <thead><tr><th>Business</th><th>Owner</th><th>Status</th><th>Submitted</th><th>Action</th></tr></thead>
+          <tbody>
+          <% data.kybList.forEach(k=>{ %>
+            <tr><td><%= k.business_name %></td><td><%= k.owner_name %></td>
+            <td><span class="badge-status <%= statusClass(k.status) %>"><%= k.status %></span></td><td class="text-muted"><%= k.date %></td>
+            <td>
+              <% if(k.status==='Pending' || k.status==='Under Review'){ %>
+              <form method="POST" action="/api/admin/kyb/<%=k.id%>/decision" class="d-flex gap-1">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                <button name="decision" value="approve" class="btn btn-sm btn-bma-primary">Approve</button>
+                <button name="decision" value="reject" class="btn btn-sm btn-bma-outline">Reject</button>
+              </form>
+              <% } else { %>—<% } %>
+            </td></tr>
+          <% }) %>
+          <% if(!data.kybList.length){ %><tr><td colspan="5" class="text-center text-muted py-4">Nothing pending</td></tr><% } %>
+          </tbody>
+        </table>
+      </div>
+      <% } %>
+    <% } %>
+
+    <!-- ============ NOTIFICATIONS ============ -->
+    <% if (page==='notifications') { %>
+      <div class="card-bma p-3">
+        <h6 class="fw-bold mb-3">Notifications</h6>
+        <% data.notifications.forEach(n=>{ %>
+        <div class="d-flex justify-content-between align-items-start border-bottom py-3">
+          <div>
+            <div class="fw-semibold small"><%= n.title %></div>
+            <div class="text-muted small"><%= n.message %></div>
+            <div class="text-muted" style="font-size:11px;"><%= n.date %></div>
+          </div>
+          <% if(!n.read){ %>
+          <form method="POST" action="/api/notifications/<%=n.id%>/read"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="btn btn-sm btn-link">Mark read</button></form>
+          <% } %>
+        </div>
+        <% }) %>
+        <% if(!data.notifications.length){ %><div class="text-center text-muted py-4">No notifications</div><% } %>
+      </div>
+    <% } %>
+
+    <!-- ============ PROFILE ============ -->
+    <% if (page==='profile') { %>
+      <div class="card-bma p-4" style="max-width:560px;">
+        <h6 class="fw-bold mb-3">Profile</h6>
+        <form method="POST" action="/api/profile/update">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <label class="form-label small fw-semibold">Full Name</label>
+          <input type="text" name="full_name" class="form-control mb-2" value="<%= user.full_name %>" required>
+          <label class="form-label small fw-semibold">Email</label>
+          <input type="email" class="form-control mb-2" value="<%= user.email %>" disabled>
+          <label class="form-label small fw-semibold">Phone</label>
+          <input type="text" name="phone" class="form-control mb-3" value="<%= user.phone %>" required>
+          <button class="btn btn-bma-primary w-100" type="submit">Save Changes</button>
+        </form>
+      </div>
+    <% } %>
+
+    <!-- ============ SECURITY ============ -->
+    <% if (page==='security') { %>
+      <div class="row g-3">
+        <div class="col-lg-6">
+          <div class="card-bma p-4">
+            <% if (role==='admin') { %>
+            <h6 class="fw-bold mb-3">Change Password</h6>
+            <form method="POST" action="/api/security/change-password">
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+              <input type="password" name="current_password" class="form-control mb-2" placeholder="Current Password" required>
+              <input type="password" name="new_password" class="form-control mb-2" placeholder="New Password" minlength="8" required>
+              <button class="btn btn-bma-primary w-100" type="submit">Update Password</button>
+            </form>
+            <% } else { %>
+            <h6 class="fw-bold mb-3">Change PIN</h6>
+            <form method="POST" action="/api/security/change-pin">
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+              <input type="password" inputmode="numeric" maxlength="4" name="current_pin" class="form-control mb-2" placeholder="Current 4-digit PIN" required>
+              <input type="password" inputmode="numeric" maxlength="4" name="new_pin" class="form-control mb-2" placeholder="New 4-digit PIN" required>
+              <button class="btn btn-bma-primary w-100" type="submit">Update PIN</button>
+            </form>
+            <% } %>
+          </div>
+        </div>
+        <div class="col-lg-6">
+          <div class="card-bma p-3">
+            <h6 class="fw-bold mb-3">Active Sessions / Devices</h6>
+            <% data.sessions.forEach(s=>{ %>
+            <div class="d-flex justify-content-between align-items-center border-bottom py-2">
+              <div>
+                <div class="small fw-semibold"><%= s.device %></div>
+                <div class="text-muted" style="font-size:11.5px;"><%= s.ip %> &middot; <%= s.last_seen %></div>
+              </div>
+              <form method="POST" action="/api/security/sessions/<%=s.id%>/revoke"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="btn btn-sm btn-bma-outline">Revoke</button></form>
+            </div>
+            <% }) %>
+          </div>
+        </div>
+      </div>
+    <% } %>
+
+    <!-- ============ ADMIN: USERS ============ -->
+    <% if (page==='users') { %>
+      <div class="card-bma p-3">
+        <h6 class="fw-bold mb-3">Users</h6>
+        <table class="table table-bma mb-0">
+          <thead><tr><th>Name</th><th>Email</th><th>Status</th><th>Joined</th><th>Action</th></tr></thead>
+          <tbody>
+          <% data.users.forEach(u=>{ %>
+            <tr><td><%= u.full_name %></td><td><%= u.email %></td>
+            <td><span class="badge-status <%= statusClass(u.status) %>"><%= u.status %></span></td><td class="text-muted"><%= u.date %></td>
+            <td>
+              <form method="POST" action="/api/admin/users/<%=u.id%>/status" class="d-flex gap-1">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                <% if(u.status==='active'){ %><button name="status" value="frozen" class="btn btn-sm btn-bma-outline">Freeze</button>
+                <% } else { %><button name="status" value="active" class="btn btn-sm btn-bma-primary">Unfreeze</button><% } %>
+              </form>
+            </td></tr>
+          <% }) %>
+          <% if(!data.users.length){ %><tr><td colspan="5" class="text-center text-muted py-4">No users</td></tr><% } %>
+          </tbody>
+        </table>
+      </div>
+    <% } %>
+
+    <!-- ============ ADMIN: MERCHANTS ============ -->
+    <% if (page==='merchants') { %>
+      <div class="card-bma p-3">
+        <h6 class="fw-bold mb-3">Merchants</h6>
+        <table class="table table-bma mb-0">
+          <thead><tr><th>Business</th><th>Owner</th><th>Status</th><th>Joined</th><th>Action</th></tr></thead>
+          <tbody>
+          <% data.merchants.forEach(m=>{ %>
+            <tr><td><%= m.business_name %></td><td><%= m.owner_name %></td>
+            <td><span class="badge-status <%= statusClass(m.status) %>"><%= m.status %></span></td><td class="text-muted"><%= m.date %></td>
+            <td>
+              <form method="POST" action="/api/admin/merchants/<%=m.id%>/status" class="d-flex gap-1 flex-wrap">
+                <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+                <% ['Approved','Suspended','Frozen','Rejected'].forEach(s=>{ %>
+                <button name="status" value="<%=s%>" class="btn btn-sm btn-bma-outline"><%=s%></button>
+                <% }) %>
+              </form>
+            </td></tr>
+          <% }) %>
+          <% if(!data.merchants.length){ %><tr><td colspan="5" class="text-center text-muted py-4">No merchants</td></tr><% } %>
+          </tbody>
+        </table>
+      </div>
+    <% } %>
+
+    <!-- ============ ADMIN: DEPOSITS / SETTLEMENTS (list-only reuse) ============ -->
+    <% if (page==='deposits') { %>
+      <div class="card-bma p-3">
+        <h6 class="fw-bold mb-3">Deposits</h6>
+        <table class="table table-bma mb-0">
+          <thead><tr><th>Ref</th><th>User</th><th>BDT</th><th>Status</th><th>Date</th></tr></thead>
+          <tbody>
+          <% data.deposits.forEach(d=>{ %>
+            <tr><td class="text-muted"><%= d.reference %></td><td><%= d.user_name %></td><td><%= bdt(d.amount_bdt) %></td>
+            <td><span class="badge-status <%= statusClass(d.status) %>"><%= d.status %></span></td><td class="text-muted"><%= d.date %></td></tr>
+          <% }) %>
+          <% if(!data.deposits.length){ %><tr><td colspan="5" class="text-center text-muted py-4">No deposits</td></tr><% } %>
+          </tbody>
+        </table>
+      </div>
+    <% } %>
+
+    <% if (page==='settlements') { %>
+      <div class="card-bma p-3">
+        <h6 class="fw-bold mb-3">Settlements</h6>
+        <table class="table table-bma mb-0">
+          <thead><tr><th>Ref</th><th>Merchant</th><th>BMC</th><th>BDT</th><th>Status</th><th>Date</th></tr></thead>
+          <tbody>
+          <% data.settlements.forEach(s=>{ %>
+            <tr><td class="text-muted"><%= s.ref %></td><td><%= s.merchant_name %></td><td><%= money(s.amount_bmc) %></td><td><%= bdt(s.amount_bdt) %></td>
+            <td><span class="badge-status <%= statusClass(s.status) %>"><%= s.status %></span></td><td class="text-muted"><%= s.date %></td></tr>
+          <% }) %>
+          <% if(!data.settlements.length){ %><tr><td colspan="6" class="text-center text-muted py-4">No settlements</td></tr><% } %>
+          </tbody>
+        </table>
+      </div>
+    <% } %>
+
+    <!-- ============ ADMIN: RESERVE ============ -->
+    <% if (page==='reserve') { %>
+      <div class="row g-3">
+        <div class="col-lg-3 col-6"><div class="card-bma stat-card"><div class="label">Total BMC Outstanding</div><div class="value"><%= money(data.totalBmc) %></div></div></div>
+        <div class="col-lg-3 col-6"><div class="card-bma stat-card"><div class="label">User BMC</div><div class="value"><%= money(data.userBmc) %></div></div></div>
+        <div class="col-lg-3 col-6"><div class="card-bma stat-card"><div class="label">Merchant BMC</div><div class="value"><%= money(data.merchantBmc) %></div></div></div>
+        <div class="col-lg-3 col-6"><div class="card-bma stat-card"><div class="label">Escrow BMC</div><div class="value"><%= money(data.escrowBmc) %></div></div></div>
+      </div>
+      <div class="card-bma p-4 mt-3">
+        <div class="row">
+          <div class="col-md-4"><div class="label small text-muted">Expected Reserve</div><div class="fs-4 fw-bold"><%= bdt(data.expectedReserveBdt) %> BDT</div></div>
+          <div class="col-md-4"><div class="label small text-muted">Reported Reserve</div><div class="fs-4 fw-bold"><%= bdt(data.reportedReserveBdt) %> BDT</div></div>
+          <div class="col-md-4"><div class="label small text-muted">Variance</div><div class="fs-4 fw-bold <%= data.variance!==0?'text-danger':'text-success' %>"><%= bdt(data.variance) %> BDT</div></div>
+        </div>
+        <p class="text-muted small mt-3 mb-0">Reported reserve figures must come from authorized reconciliation data provided by your bank/settlement partner. The application does not independently verify bank balances.</p>
+        <p class="text-muted small mb-0">Last reconciliation: <%= data.lastReconciliation||'Never run' %></p>
+      </div>
+    <% } %>
+
+    <!-- ============ ADMIN: RECONCILIATION ============ -->
+    <% if (page==='reconciliation') { %>
+      <div class="card-bma p-3">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h6 class="fw-bold mb-0">Reconciliation Runs</h6>
+          <form method="POST" action="/api/admin/reconciliation/run"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="btn btn-bma-primary btn-sm">Run Reconciliation</button></form>
+        </div>
+        <table class="table table-bma mb-0">
+          <thead><tr><th>Ref</th><th>Ledger Total</th><th>Provider Total</th><th>Variance</th><th>Status</th><th>Date</th></tr></thead>
+          <tbody>
+          <% data.runs.forEach(r=>{ %>
+            <tr><td class="text-muted"><%= r.ref %></td><td><%= money(r.ledgerTotal) %></td><td><%= money(r.providerTotal) %></td>
+            <td><%= money(r.variance) %></td><td><span class="badge-status <%= statusClass(r.status) %>"><%= r.status %></span></td><td class="text-muted"><%= r.date %></td></tr>
+          <% }) %>
+          <% if(!data.runs.length){ %><tr><td colspan="6" class="text-center text-muted py-4">No reconciliation runs yet</td></tr><% } %>
+          </tbody>
+        </table>
+      </div>
+    <% } %>
+
+    <!-- ============ ADMIN: RISK ALERTS ============ -->
+    <% if (page==='risk-alerts') { %>
+      <div class="card-bma p-3">
+        <h6 class="fw-bold mb-3">Risk Alerts</h6>
+        <table class="table table-bma mb-0">
+          <thead><tr><th>Ref</th><th>Type</th><th>Subject</th><th>Severity</th><th>Status</th><th>Date</th><th>Action</th></tr></thead>
+          <tbody>
+          <% data.alerts.forEach(a=>{ %>
+            <tr><td class="text-muted"><%= a.ref %></td><td><%= a.type %></td><td><%= a.subject %></td>
+            <td><span class="badge-status <%= statusClass(a.severity) %>"><%= a.severity %></span></td>
+            <td><span class="badge-status <%= statusClass(a.status) %>"><%= a.status %></span></td><td class="text-muted"><%= a.date %></td>
+            <td>
+              <% if(a.status!=='Resolved'){ %>
+              <form method="POST" action="/api/admin/risk-alerts/<%=a.id%>/resolve"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="btn btn-sm btn-bma-outline">Resolve</button></form>
+              <% } else {%>—<% } %>
+            </td></tr>
+          <% }) %>
+          <% if(!data.alerts.length){ %><tr><td colspan="7" class="text-center text-muted py-4">No risk alerts</td></tr><% } %>
+          </tbody>
+        </table>
+      </div>
+    <% } %>
+
+    <!-- ============ ADMIN: AUDIT LOGS ============ -->
+    <% if (page==='audit-logs') { %>
+      <div class="card-bma p-3">
+        <h6 class="fw-bold mb-3">Audit Logs</h6>
+        <table class="table table-bma mb-0">
+          <thead><tr><th>Actor</th><th>Action</th><th>Target</th><th>IP</th><th>Date</th></tr></thead>
+          <tbody>
+          <% data.logs.forEach(l=>{ %>
+            <tr><td><%= l.actor %></td><td><%= l.action %></td><td class="text-muted"><%= l.target %></td><td class="text-muted"><%= l.ip %></td><td class="text-muted"><%= l.date %></td></tr>
+          <% }) %>
+          <% if(!data.logs.length){ %><tr><td colspan="5" class="text-center text-muted py-4">No audit logs</td></tr><% } %>
+          </tbody>
+        </table>
+      </div>
+    <% } %>
+
+    <!-- ============ ADMIN: SYSTEM SETTINGS ============ -->
+    <% if (page==='system-settings') { %>
+      <div class="row g-3">
+        <div class="col-lg-6">
+          <div class="card-bma p-4">
+            <h6 class="fw-bold mb-3">Core Settings</h6>
+            <form method="POST" action="/api/admin/settings/update">
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+              <label class="form-label small fw-semibold">BMC Rate (BDT per 1 BMC)</label>
+              <input type="number" step="0.01" name="coin_rate_bdt" class="form-control mb-2" value="<%= data.settings.coin_rate_bdt %>">
+              <label class="form-label small fw-semibold">Minimum Deposit (BDT)</label>
+              <input type="number" name="minimum_deposit" class="form-control mb-2" value="<%= data.settings.minimum_deposit %>">
+              <label class="form-label small fw-semibold">Maximum Deposit (BDT)</label>
+              <input type="number" name="maximum_deposit" class="form-control mb-2" value="<%= data.settings.maximum_deposit %>">
+              <label class="form-label small fw-semibold">Daily Payment Limit (BMC)</label>
+              <input type="number" name="daily_payment_limit" class="form-control mb-2" value="<%= data.settings.daily_payment_limit %>">
+              <label class="form-label small fw-semibold">Monthly Payment Limit (BMC)</label>
+              <input type="number" name="monthly_payment_limit" class="form-control mb-3" value="<%= data.settings.monthly_payment_limit %>">
+              <div class="form-check form-switch mb-2"><input class="form-check-input" type="checkbox" name="maintenance_mode" <%= data.settings.maintenance_mode?'checked':'' %>><label class="form-check-label">Maintenance Mode</label></div>
+              <div class="form-check form-switch mb-2"><input class="form-check-input" type="checkbox" name="registration_enabled" <%= data.settings.registration_enabled?'checked':'' %>><label class="form-check-label">User Registration Enabled</label></div>
+              <div class="form-check form-switch mb-3"><input class="form-check-input" type="checkbox" name="merchant_registration_enabled" <%= data.settings.merchant_registration_enabled?'checked':'' %>><label class="form-check-label">Merchant Registration Enabled</label></div>
+              <button class="btn btn-bma-primary w-100" type="submit">Save Settings</button>
+            </form>
+          </div>
+        </div>
+        <div class="col-lg-6">
+          <div class="card-bma p-4">
+            <h6 class="fw-bold mb-3">Ledger Integrity</h6>
+            <form method="POST" action="/api/admin/ledger/verify">
+              <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+              <button class="btn btn-bma-outline w-100 mb-3" type="submit">Run Integrity Check</button>
+            </form>
+            <% if (data.integrityResult) { %>
+              <div class="alert <%= data.integrityResult.valid?'alert-success':'alert-danger' %> rounded-3">
+                <%= data.integrityResult.valid ? 'VALID — ledger hash chain intact' : 'INTEGRITY ERROR — mismatch detected at entry '+data.integrityResult.failedAt %>
+              </div>
+            <% } %>
+          </div>
+        </div>
+      </div>
+    <% } %>
+
+    <!-- ============ ADMIN: PROVIDERS ============ -->
+    <% if (page==='payment-providers' || page==='settlement-providers') { %>
+      <div class="card-bma p-4" style="max-width:640px;">
+        <h6 class="fw-bold mb-3"><%= page==='payment-providers'?'Payment Provider':'Settlement Provider' %> Configuration</h6>
+        <p class="text-muted small">Credentials are read from environment variables and never displayed in full. Update them via your hosting provider's environment variable settings, then restart the application.</p>
+        <table class="table table-bma mb-0">
+          <thead><tr><th>Field</th><th>Configured</th></tr></thead>
+          <tbody>
+          <% data.fields.forEach(f=>{ %>
+            <tr><td><%= f.name %></td><td><span class="badge-status <%= f.set?'st-completed':'st-failed' %>"><%= f.set?'Set':'Missing' %></span></td></tr>
+          <% }) %>
+          </tbody>
+        </table>
+        <div class="alert alert-<%= data.active?'success':'warning' %> rounded-3 mt-3">
+          <%= data.active ? 'A live provider is configured and active.' : (data.testMode ? 'Running in TEST MODE — not valid for real transactions.' : 'No provider configured — financial operations are blocked.') %>
+        </div>
+      </div>
+    <% } %>
+
+    <!-- ============ DISPUTE DETAIL ============ -->
+    <% if (page==='dispute-detail') { %>
+      <div class="card-bma p-4" style="max-width:640px;">
+        <h6 class="fw-bold mb-2">Dispute <%= data.dispute.ref %></h6>
+        <div class="mb-3">Status: <span class="badge-status <%= statusClass(data.dispute.status) %>"><%= data.dispute.status %></span></div>
+        <p class="text-muted"><%= data.dispute.reason %></p>
+        <% if (role==='merchant' && data.dispute.status==='Open') { %>
+        <form method="POST" action="/api/disputes/<%=data.dispute.ref%>/respond">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <textarea name="response" class="form-control mb-2" placeholder="Your response" required></textarea>
+          <button class="btn btn-bma-primary w-100" type="submit">Submit Response</button>
+        </form>
+        <% } %>
+        <% if (role==='admin') { %>
+        <form method="POST" action="/api/admin/disputes/<%=data.dispute.ref%>/resolve" class="d-flex gap-2 mt-2">
+          <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+          <button name="resolution" value="Approved" class="btn btn-bma-primary flex-fill">Approve (Refund User)</button>
+          <button name="resolution" value="Rejected" class="btn btn-bma-outline flex-fill">Reject</button>
+        </form>
+        <% } %>
+      </div>
+    <% } %>
+
+  </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
