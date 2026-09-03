@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BMA - Secure Digital Payment Platform</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+<style>
+:root{ --p:#4F46E5; --pd:#3730A3; --s:#10B981; --d:#EF4444; --dk:#111827; --bg:#F4F7FE; }
+*{font-family:'Inter',sans-serif;box-sizing:border-box;}
+body{margin:0;background:#EEF1FF;display:flex;justify-content:center;min-height:100vh;}
+.phone-shell{width:100%;max-width:430px;min-height:100vh;background:#fff;display:flex;flex-direction:column;box-shadow:0 0 40px rgba(17,24,39,0.08);}
+.topbar{background:linear-gradient(135deg,var(--p),var(--pd));color:#fff;padding:22px 22px 26px;display:flex;align-items:center;gap:12px;min-height:64px;}
+.topbar .back-btn{width:34px;height:34px;border-radius:10px;border:1px solid rgba(255,255,255,0.4);display:flex;align-items:center;justify-content:center;color:#fff;text-decoration:none;flex-shrink:0;}
+.topbar .title{font-weight:800;font-size:19px;flex:1;}
+.topbar .pill{background:rgba(255,255,255,0.18);border-radius:20px;padding:5px 12px;font-size:12px;font-weight:700;}
+.content{flex:1;padding:30px 26px 40px;display:flex;flex-direction:column;}
+.brand-logo{width:64px;height:64px;border-radius:20px;background:linear-gradient(135deg,var(--p),#7C3AED);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:28px;margin:6px auto 20px;}
+h1.h-title{font-weight:800;font-size:22px;color:var(--dk);text-align:center;margin-bottom:6px;}
+p.h-sub{color:#6B7280;text-align:center;font-size:14px;margin-bottom:26px;line-height:1.5;}
+.form-label{font-weight:600;font-size:13px;color:var(--dk);}
+.form-control{border-radius:12px;padding:12px 14px;border:1.5px solid #E5E7EB;font-size:15px;}
+.form-control:focus{border-color:var(--p);box-shadow:0 0 0 3px rgba(79,70,229,0.12);}
+.phone-input-group{display:flex;border:1.5px solid #E5E7EB;border-radius:12px;overflow:hidden;}
+.phone-input-group .flag-box{display:flex;align-items:center;gap:6px;padding:0 12px;background:#F9FAFB;font-weight:700;font-size:15px;border-right:1.5px solid #E5E7EB;color:var(--dk);}
+.phone-input-group input{border:none;flex:1;padding:12px 14px;font-size:15px;border-radius:0;}
+.phone-input-group input:focus{outline:none;box-shadow:none;}
+.btn-bma{background:var(--p);border:none;border-radius:12px;padding:13px;font-weight:700;font-size:15px;color:#fff;width:100%;margin-top:8px;}
+.btn-bma:hover{background:var(--pd);color:#fff;}
+.btn-bma:disabled{background:#C7CBEF;}
+.btn-bma-outline-2{border:1.5px solid #E5E7EB;border-radius:12px;padding:11px;background:#fff;font-weight:700;width:100%;color:var(--dk);}
+.link-muted{color:#6B7280;font-size:13.5px;text-decoration:none;}
+.link-strong{color:var(--p);font-weight:700;text-decoration:none;}
+.center-link{text-align:center;margin-top:18px;font-size:13.5px;color:#6B7280;}
+.alert-mini{border-radius:12px;font-size:13.5px;padding:10px 14px;}
+.digit-boxes{display:flex;gap:12px;justify-content:center;margin:8px 0 6px;}
+.digit-boxes input{width:56px;height:60px;text-align:center;font-size:24px;font-weight:700;border:1.5px solid #E5E7EB;border-radius:12px;color:var(--dk);}
+.digit-boxes input:focus{border-color:var(--p);outline:none;box-shadow:0 0 0 3px rgba(79,70,229,0.12);}
+.demo-otp-note{background:#ECFDF5;color:#065F46;border-radius:10px;padding:8px 12px;text-align:center;font-size:13px;font-weight:600;margin-bottom:6px;}
+.gender-row{display:flex;gap:10px;margin-bottom:20px;}
+.gender-row label{flex:1;}
+.gender-row input{display:none;}
+.gender-opt{border:1.5px solid #E5E7EB;border-radius:12px;padding:12px 6px;text-align:center;font-size:13px;font-weight:600;color:#4B5563;cursor:pointer;display:block;}
+.gender-row input:checked + .gender-opt{background:rgba(79,70,229,0.1);border-color:var(--p);color:var(--p);}
+.account-type-row{display:flex;gap:10px;margin-bottom:20px;}
+.account-type-row label{flex:1;}
+.account-type-row input{display:none;}
+.acct-opt{border:1.5px solid #E5E7EB;border-radius:12px;padding:14px 8px;text-align:center;font-size:13.5px;font-weight:700;color:#4B5563;cursor:pointer;display:block;}
+.account-type-row input:checked + .acct-opt{background:rgba(79,70,229,0.1);border-color:var(--p);color:var(--p);}
+.pin-lock-icon{width:52px;height:52px;border-radius:50%;background:#ECFDF5;color:var(--s);display:flex;align-items:center;justify-content:center;font-size:22px;margin:0 auto 16px;}
+.spacer{flex:1;}
+.hidden-section{display:none;}
+.pw-wrap{position:relative;}
+.pw-wrap .toggle-eye{position:absolute;right:14px;top:50%;transform:translateY(-50%);color:#9CA3AF;cursor:pointer;background:none;border:none;}
+</style>
+</head>
+<body>
+<div class="phone-shell">
+
+  <%
+    const showBack = ['register-otp','register-info','register-password','forgot-otp','forgot-password','login-password'].includes(step);
+    const titles = {
+      'login-phone': 'Welcome Back', 'login-password': 'Enter Password', 'register-phone': 'Create Account',
+      'register-otp': 'Phone Verification', 'register-info': 'Your Information', 'register-password': 'Set Password',
+      'forgot-otp': 'Reset Password', 'forgot-password': 'New Password', 'admin': 'Admin Sign In',
+    };
+    const backHref = (step==='login-password') ? '/login' : (step.startsWith('register')) ? '/register' : (step.startsWith('forgot')) ? '/login' : '/login';
+  %>
+
+  <div class="topbar">
+    <% if (showBack) { %><a href="<%= backHref %>" class="back-btn"><i class="fa-solid fa-chevron-left"></i></a><% } %>
+    <div class="title"><%= titles[step] || 'BMA' %></div>
+    <% if (step !== 'admin') { %><span class="pill">BMC = <%= coinRate %> BDT</span><% } %>
+  </div>
+
+  <div class="content">
+    <% if (typeof error !== 'undefined' && error) { %>
+      <div class="alert alert-danger alert-mini mb-3"><i class="fa-solid fa-circle-exclamation me-1"></i> <%= error %></div>
+    <% } %>
+    <% if (typeof notice !== 'undefined' && notice) { %>
+      <div class="alert alert-success alert-mini mb-3"><i class="fa-solid fa-circle-check me-1"></i> <%= notice %></div>
+    <% } %>
+
+    <!-- ============ LOGIN: PHONE ============ -->
+    <% if (step === 'login-phone') { %>
+      <div class="brand-logo">B</div>
+      <h1 class="h-title">Sign In</h1>
+      <p class="h-sub">Enter your phone number to continue to your BMA wallet.</p>
+
+      <form method="POST" action="/login/check-phone" id="loginPhoneForm">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <label class="form-label">Phone Number</label>
+        <div class="phone-input-group mb-3">
+          <div class="flag-box">🇧🇩 +880</div>
+          <input type="tel" name="phone" inputmode="numeric" placeholder="1XXXXXXXXX" maxlength="11" required autofocus>
+        </div>
+        <button type="submit" class="btn btn-bma">Continue</button>
+      </form>
+
+      <form method="POST" action="/forgot-password/send-otp" id="forgotPhoneForm" class="hidden-section">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <p class="h-sub" style="margin-top:-10px;">Enter your registered phone number to reset your password.</p>
+        <label class="form-label">Phone Number</label>
+        <div class="phone-input-group mb-3">
+          <div class="flag-box">🇧🇩 +880</div>
+          <input type="tel" name="phone" inputmode="numeric" placeholder="1XXXXXXXXX" maxlength="11" required>
+        </div>
+        <button type="submit" class="btn btn-bma">Send Reset Code</button>
+      </form>
+
+      <div class="spacer"></div>
+      <div class="center-link">
+        <a href="#" id="toggleForgot" class="link-strong">Forgot Password?</a>
+      </div>
+      <div class="center-link">
+        Don't have an account? <a href="/register" class="link-strong">Create Account</a>
+      </div>
+      <div class="center-link">
+        <a href="/admin-login" class="link-muted">Admin Sign In</a>
+      </div>
+      <script>
+      document.getElementById('toggleForgot').addEventListener('click', function(e){
+        e.preventDefault();
+        document.getElementById('loginPhoneForm').classList.toggle('hidden-section');
+        document.getElementById('forgotPhoneForm').classList.toggle('hidden-section');
+        this.textContent = this.textContent === 'Forgot Password?' ? 'Back to Sign In' : 'Forgot Password?';
+      });
+      </script>
+    <% } %>
+
+    <!-- ============ LOGIN: PASSWORD ============ -->
+    <% if (step === 'login-password') { %>
+      <div class="pin-lock-icon"><i class="fa-solid fa-lock"></i></div>
+      <h1 class="h-title">Welcome Back</h1>
+      <p class="h-sub">Enter the password for<br><b><%= phoneMasked %></b></p>
+      <form method="POST" action="/login/verify-password">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <div class="pw-wrap mb-2">
+          <input type="password" name="password" id="loginPwInput" class="form-control" placeholder="Enter your password" required autofocus>
+          <button type="button" class="toggle-eye" onclick="toggleEye('loginPwInput', this)"><i class="fa-regular fa-eye"></i></button>
+        </div>
+        <button type="submit" class="btn btn-bma">Sign In</button>
+      </form>
+      <div class="center-link"><a href="#" onclick="document.getElementById('forgotFromPw').classList.remove('hidden-section');this.style.display='none';return false;" class="link-strong">Forgot Password?</a></div>
+      <form method="POST" action="/forgot-password/send-otp" class="hidden-section mt-2" id="forgotFromPw">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <input type="hidden" name="phone" value="<%= (typeof rawPhone !== 'undefined' ? rawPhone : '') %>">
+        <p class="text-muted small text-center">We'll send a reset code to <%= phoneMasked %></p>
+        <button type="submit" class="btn-bma-outline-2">Send Reset Code</button>
+      </form>
+    <% } %>
+
+    <!-- ============ REGISTER: PHONE ============ -->
+    <% if (step === 'register-phone') { %>
+      <div class="brand-logo">B</div>
+      <h1 class="h-title">Enter Mobile Number</h1>
+      <p class="h-sub">Create your BMA account with your mobile number to get all the benefits.</p>
+      <form method="POST" action="/register/send-otp">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <label class="form-label">Phone Number</label>
+        <div class="phone-input-group mb-3">
+          <div class="flag-box">🇧🇩 +880</div>
+          <input type="tel" name="phone" inputmode="numeric" placeholder="1XXXXXXXXX" maxlength="11" required autofocus>
+        </div>
+        <button type="submit" class="btn btn-bma">Next</button>
+      </form>
+      <div class="spacer"></div>
+      <div class="center-link">Already have an account? <a href="/login" class="link-strong">Sign In</a></div>
+    <% } %>
+
+    <!-- ============ REGISTER / FORGOT: OTP ============ -->
+    <% if (step === 'register-otp' || step === 'forgot-otp') { %>
+      <div class="brand-logo">B</div>
+      <h1 class="h-title">OTP Verification</h1>
+      <p class="h-sub">We have sent the verification code to<br><b><%= phoneMasked %></b></p>
+      <% if (typeof demoOtp !== 'undefined' && demoOtp) { %>
+        <div class="demo-otp-note">For demo, OTP is <%= demoOtp %></div>
+      <% } %>
+      <form method="POST" action="<%= step === 'register-otp' ? '/register/verify-otp' : '/forgot-password/verify-otp' %>" id="otpForm">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <input type="hidden" name="otp" id="otpValue">
+        <div class="digit-boxes otp-digits">
+          <input type="tel" inputmode="numeric" maxlength="1">
+          <input type="tel" inputmode="numeric" maxlength="1">
+          <input type="tel" inputmode="numeric" maxlength="1">
+          <input type="tel" inputmode="numeric" maxlength="1">
+        </div>
+        <button type="submit" class="btn btn-bma" id="otpSubmit" disabled>Verify</button>
+      </form>
+      <form method="POST" action="<%= step === 'register-otp' ? '/register/resend-otp' : '/forgot-password/resend-otp' %>" class="center-link">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <button type="submit" class="link-strong border-0 bg-transparent p-0" style="font-size:13.5px;">Resend Code</button>
+      </form>
+      <script>wireDigitBoxes('.otp-digits', 'otpValue', 'otpSubmit');</script>
+    <% } %>
+
+    <!-- ============ REGISTER: INFO ============ -->
+    <% if (step === 'register-info') { %>
+      <form method="POST" action="/register/info">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <label class="form-label d-block mb-2">Gender</label>
+        <div class="gender-row">
+          <label><input type="radio" name="gender" value="male" checked><span class="gender-opt"><i class="fa-solid fa-person d-block mb-1"></i>Male</span></label>
+          <label><input type="radio" name="gender" value="female"><span class="gender-opt"><i class="fa-solid fa-person-dress d-block mb-1"></i>Female</span></label>
+          <label><input type="radio" name="gender" value="other"><span class="gender-opt"><i class="fa-solid fa-user-group d-block mb-1"></i>Other</span></label>
+        </div>
+        <label class="form-label">First Name *</label>
+        <input type="text" name="first_name" class="form-control mb-2" placeholder="Enter First Name" required maxlength="60">
+        <label class="form-label">Last Name *</label>
+        <input type="text" name="last_name" class="form-control mb-2" placeholder="Enter Last Name" required maxlength="60">
+        <label class="form-label">Email Address</label>
+        <input type="email" name="email" class="form-control mb-3" placeholder="demo.abc@email.com" maxlength="120">
+        <label class="form-label d-block mb-2">Account Type</label>
+        <div class="account-type-row">
+          <label><input type="radio" name="account_type" value="user" checked><span class="acct-opt"><i class="fa-solid fa-wallet d-block mb-1"></i>Personal</span></label>
+          <label><input type="radio" name="account_type" value="merchant"><span class="acct-opt"><i class="fa-solid fa-shop d-block mb-1"></i>Business</span></label>
+        </div>
+        <button type="submit" class="btn btn-bma">Proceed</button>
+      </form>
+    <% } %>
+
+    <!-- ============ REGISTER / FORGOT: SET PASSWORD ============ -->
+    <% if (step === 'register-password' || step === 'forgot-password') { %>
+      <div class="pin-lock-icon"><i class="fa-solid fa-lock"></i></div>
+      <h1 class="h-title">Set Your Password</h1>
+      <p class="h-sub">Create a password (at least 8 characters) for future secure login.</p>
+      <form method="POST" action="<%= step === 'register-password' ? '/register/set-password' : '/forgot-password/reset' %>">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <label class="form-label">Password</label>
+        <div class="pw-wrap mb-3">
+          <input type="password" name="password" id="newPwInput" class="form-control" placeholder="At least 8 characters" minlength="8" maxlength="128" required>
+          <button type="button" class="toggle-eye" onclick="toggleEye('newPwInput', this)"><i class="fa-regular fa-eye"></i></button>
+        </div>
+        <label class="form-label">Confirm Password</label>
+        <div class="pw-wrap mb-3">
+          <input type="password" name="confirm_password" id="confirmPwInput" class="form-control" placeholder="Re-enter password" minlength="8" maxlength="128" required>
+          <button type="button" class="toggle-eye" onclick="toggleEye('confirmPwInput', this)"><i class="fa-regular fa-eye"></i></button>
+        </div>
+        <button type="submit" class="btn btn-bma">Save</button>
+      </form>
+    <% } %>
+
+    <!-- ============ ADMIN LOGIN ============ -->
+    <% if (step === 'admin') { %>
+      <div class="brand-logo">B</div>
+      <h1 class="h-title">Admin Sign In</h1>
+      <p class="h-sub">Administrator access to the BMA control panel.</p>
+      <form method="POST" action="/admin-login">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <label class="form-label">Email</label>
+        <input type="email" name="email" class="form-control mb-2" placeholder="admin@example.com" required>
+        <label class="form-label">Password</label>
+        <div class="pw-wrap mb-3">
+          <input type="password" name="password" id="adminPwInput" class="form-control" placeholder="••••••••" required>
+          <button type="button" class="toggle-eye" onclick="toggleEye('adminPwInput', this)"><i class="fa-regular fa-eye"></i></button>
+        </div>
+        <button type="submit" class="btn btn-bma">Sign In</button>
+      </form>
+      <div class="center-link">
+        <a href="#" id="toggleAdminForgot" class="link-muted">Forgot Password?</a>
+      </div>
+      <form method="POST" action="/admin-forgot-password" class="hidden-section mt-2" id="adminForgotForm">
+        <input type="hidden" name="_csrf" value="<%= csrfToken %>">
+        <label class="form-label">Email</label>
+        <input type="email" name="email" class="form-control mb-2" placeholder="admin@example.com" required>
+        <button type="submit" class="btn-bma-outline-2">Send Reset Instructions</button>
+      </form>
+      <div class="spacer"></div>
+      <div class="center-link"><a href="/login" class="link-strong">Back to Phone Sign In</a></div>
+      <script>
+      document.getElementById('toggleAdminForgot').addEventListener('click', function(e){
+        e.preventDefault();
+        document.getElementById('adminForgotForm').classList.toggle('hidden-section');
+      });
+      </script>
+    <% } %>
+
+  </div>
+</div>
+
+<script>
+// Wires a group of single-digit OTP boxes: auto-advance, backspace-to-previous, digits only,
+// keeps a hidden input in sync, and enables the given submit button once all boxes are filled.
+function wireDigitBoxes(containerSelector, hiddenInputId, submitBtnId) {
+  const container = document.querySelector(containerSelector);
+  if (!container) return;
+  const boxes = Array.from(container.querySelectorAll('input'));
+  const hidden = document.getElementById(hiddenInputId);
+  const submitBtn = submitBtnId ? document.getElementById(submitBtnId) : null;
+
+  function sync() {
+    const value = boxes.map(b => b.value).join('');
+    if (hidden) hidden.value = value;
+    if (submitBtn) submitBtn.disabled = value.length !== boxes.length;
+  }
+  boxes.forEach((box, idx) => {
+    box.addEventListener('input', function () {
+      this.value = this.value.replace(/[^0-9]/g, '').slice(0, 1);
+      if (this.value && idx < boxes.length - 1) boxes[idx + 1].focus();
+      sync();
+    });
+    box.addEventListener('keydown', function (e) {
+      if (e.key === 'Backspace' && !this.value && idx > 0) boxes[idx - 1].focus();
+    });
+  });
+  sync();
+}
+
+function toggleEye(inputId, btn) {
+  const input = document.getElementById(inputId);
+  const icon = btn.querySelector('i');
+  if (input.type === 'password') { input.type = 'text'; icon.className = 'fa-regular fa-eye-slash'; }
+  else { input.type = 'password'; icon.className = 'fa-regular fa-eye'; }
+}
+</script>
+</body>
+</html>
