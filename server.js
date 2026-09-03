@@ -70,9 +70,13 @@ function decToNum(d) { return d == null ? 0 : parseFloat(d.toString()); }
 
 const UserSchema = new Schema({
   full_name: { type: String, required: true, trim: true, maxlength: 120 },
-  email: { type: String, required: true, unique: true, lowercase: true, trim: true, index: true },
+  email: { type: String, default: null, lowercase: true, trim: true, index: true, sparse: true, unique: true },
   phone: { type: String, required: true, unique: true, trim: true, index: true },
-  password_hash: { type: String, required: true },
+  gender: { type: String, enum: ['male', 'female', 'other', null], default: null },
+  // Admins log in with email + password. Users/merchants log in with phone + 4-digit PIN (like a mobile wallet app).
+  password_hash: { type: String, default: null },
+  pin_hash: { type: String, default: null },
+  phone_verified: { type: Boolean, default: false },
   role: { type: String, enum: ['user', 'merchant', 'admin'], required: true, default: 'user', index: true },
   status: { type: String, enum: ['active', 'pending', 'suspended', 'frozen', 'deleted'], default: 'active', index: true },
   profile_picture: { type: String, default: null },
@@ -84,6 +88,17 @@ const UserSchema = new Schema({
   last_login: { type: Date, default: null },
 }, { timestamps: { createdAt: 'created_at', updatedAt: 'updated_at' } });
 const User = mongoose.model('User', UserSchema);
+
+const PhoneOtpSchema = new Schema({
+  phone: { type: String, required: true, index: true },
+  purpose: { type: String, enum: ['register', 'forgot_pin'], required: true },
+  otp_hash: { type: String, required: true },
+  attempts: { type: Number, default: 0 },
+  verified: { type: Boolean, default: false },
+  expires_at: { type: Date, required: true },
+  created_at: { type: Date, default: Date.now },
+});
+const PhoneOtp = mongoose.model('PhoneOtp', PhoneOtpSchema);
 
 const MerchantSchema = new Schema({
   user_id: { type: Schema.Types.ObjectId, ref: 'User', required: true, unique: true, index: true },
@@ -459,6 +474,49 @@ function csrfGuard(req, res, next) {
  * ============================================================ */
 async function hashPassword(pw) { return bcrypt.hash(pw, 12); }
 async function verifyPassword(pw, hash) { return bcrypt.compare(pw, hash); }
+async function hashPin(pin) { return bcrypt.hash(pin, 10); }
+async function verifyPin(pin, hash) { return hash ? bcrypt.compare(pin, hash) : false; }
+
+const DEMO_OTP = '1234'; // Fixed demo OTP shown on screen, like the reference app. Replace sendOtpSms() with a real
+                          // Bangladeshi SMS gateway (e.g. SSL Wireless, Alpha SMS) call before going to real users.
+function normalizePhone(raw) {
+  let p = String(raw || '').replace(/[^0-9]/g, '');
+  if (p.startsWith('880')) p = p.slice(3);
+  if (p.startsWith('0')) p = p.slice(1);
+  return p; // stored as an 880-less local number, e.g. 1XXXXXXXXX
+}
+function maskPhone(localPhone) {
+  return localPhone.length >= 4 ? `+880 ${'*'.repeat(localPhone.length - 2)}${localPhone.slice(-2)}` : `+880 ${localPhone}`;
+}
+async function sendOtpSms(phone, otp) {
+  // Demo mode: no real SMS is sent, the OTP is only shown on-screen (see login.ejs).
+  // eslint-disable-next-line no-console
+  console.log(`[BMA DEMO OTP] +880${phone} -> ${otp}`);
+  return true;
+}
+async function issueOtp(phone, purpose) {
+  const otp = DEMO_OTP;
+  const otp_hash = crypto.createHash('sha256').update(otp).digest('hex');
+  await PhoneOtp.deleteMany({ phone, purpose, verified: false });
+  await PhoneOtp.create({ phone, purpose, otp_hash, expires_at: new Date(Date.now() + 5 * 60 * 1000) });
+  await sendOtpSms(phone, otp);
+  return otp;
+}
+async function checkOtp(phone, purpose, submittedOtp) {
+  const record = await PhoneOtp.findOne({ phone, purpose, verified: false }).sort({ created_at: -1 });
+  if (!record) return { ok: false, reason: 'No active OTP request found. Please request a new code.' };
+  if (record.expires_at < new Date()) return { ok: false, reason: 'This code has expired. Please request a new one.' };
+  if (record.attempts >= 5) return { ok: false, reason: 'Too many incorrect attempts. Please request a new code.' };
+  const submittedHash = crypto.createHash('sha256').update(String(submittedOtp || '')).digest('hex');
+  if (submittedHash !== record.otp_hash) {
+    record.attempts += 1;
+    await record.save();
+    return { ok: false, reason: 'Incorrect code. Please try again.' };
+  }
+  record.verified = true;
+  await record.save();
+  return { ok: true };
+}
 
 function currentUser(req) { return req.session && req.session.user ? req.session.user : null; }
 
@@ -865,125 +923,279 @@ async function unreadNotificationCount(ownerId) {
  * ============================================================ */
 app.get('/', (req, res) => res.redirect(currentUser(req) ? '/app/dashboard' : '/login'));
 
+/**
+ * Single-page, step-driven auth screen (login.ejs). `step` tells the template which screen to show:
+ * login-phone, login-pin, register-phone, register-otp, register-info, register-pin,
+ * forgot-phone, forgot-otp, forgot-pin, admin.
+ * Users/merchants authenticate with phone + 4-digit PIN. Admins authenticate with email + password.
+ */
+async function renderData(req, step, extra = {}) {
+  const settings = await getSystemSettings();
+  return {
+    step, error: null, notice: null, coinRate: settings.coin_rate_bdt, csrfToken: req.res ? req.res.locals.csrfToken : '',
+    phoneMasked: null, demoOtp: null, ...extra,
+  };
+}
+
+app.use((req, res, next) => { req.res = res; next(); }); // lets renderData() reach the per-request csrfToken
+
 app.get('/login', async (req, res) => {
   if (currentUser(req)) return res.redirect('/app/dashboard');
-  const settings = await getSystemSettings();
-  res.render('login', { error: null, notice: null, coinRate: settings.coin_rate_bdt, csrfToken: res.locals.csrfToken });
+  req.session.auth = null;
+  res.render('login', await renderData(req, 'login-phone'));
 });
 
-app.post('/login', authLimiter, csrfGuard,
-  body('identifier').trim().notEmpty(),
-  body('password').notEmpty(),
-  async (req, res) => {
-    const errors = validationResult(req);
-    const settings = await getSystemSettings();
-    if (!errors.isEmpty()) {
-      return res.status(400).render('login', { error: 'Please provide valid credentials.', notice: null, coinRate: settings.coin_rate_bdt, csrfToken: res.locals.csrfToken });
-    }
-    const { identifier, password } = req.body;
-    const userDoc = await User.findOne({ $or: [{ email: identifier.toLowerCase() }, { phone: identifier }] });
-    const genericError = 'Invalid email/phone or password.';
+app.get('/register', async (req, res) => {
+  if (currentUser(req)) return res.redirect('/app/dashboard');
+  req.session.auth = null;
+  res.render('login', await renderData(req, 'register-phone'));
+});
 
-    if (!userDoc) return res.status(401).render('login', { error: genericError, notice: null, coinRate: settings.coin_rate_bdt, csrfToken: res.locals.csrfToken });
+app.get('/admin-login', async (req, res) => {
+  if (currentUser(req)) return res.redirect('/app/dashboard');
+  res.render('login', await renderData(req, 'admin'));
+});
 
-    if (userDoc.lock_until && userDoc.lock_until > new Date()) {
-      return res.status(423).render('login', { error: 'Account temporarily locked due to repeated failed attempts. Try again later.', notice: null, coinRate: settings.coin_rate_bdt, csrfToken: res.locals.csrfToken });
-    }
-    if (['suspended', 'frozen', 'deleted'].includes(userDoc.status)) {
-      return res.status(403).render('login', { error: 'This account is not active. Contact support.', notice: null, coinRate: settings.coin_rate_bdt, csrfToken: res.locals.csrfToken });
-    }
+/* ---------- LOGIN: phone -> PIN ---------- */
+app.post('/login/check-phone', authLimiter, csrfGuard, body('phone').trim().notEmpty(), async (req, res) => {
+  const phone = normalizePhone(req.body.phone);
+  const errors = validationResult(req);
+  if (!errors.isEmpty() || phone.length < 8) {
+    return res.status(400).render('login', await renderData(req, 'login-phone', { error: 'Please enter a valid phone number.' }));
+  }
+  const userDoc = await User.findOne({ phone, role: { $in: ['user', 'merchant'] } });
+  if (!userDoc || !userDoc.pin_hash) {
+    return res.status(404).render('login', await renderData(req, 'login-phone', { error: 'No account found with this number. Please create an account.' }));
+  }
+  if (['suspended', 'frozen', 'deleted'].includes(userDoc.status)) {
+    return res.status(403).render('login', await renderData(req, 'login-phone', { error: 'This account is not active. Contact support.' }));
+  }
+  if (userDoc.lock_until && userDoc.lock_until > new Date()) {
+    return res.status(423).render('login', await renderData(req, 'login-phone', { error: 'Account temporarily locked due to repeated failed attempts. Try again later.' }));
+  }
+  req.session.auth = { phone };
+  res.render('login', await renderData(req, 'login-pin', { phoneMasked: maskPhone(phone), rawPhone: phone }));
+});
 
-    const ok = await verifyPassword(password, userDoc.password_hash);
-    if (!ok) {
-      userDoc.failed_login_attempts += 1;
-      if (userDoc.failed_login_attempts >= 5) {
-        userDoc.lock_until = new Date(Date.now() + 15 * 60 * 1000);
-        await riskCheck('user', userDoc._id, 'failed_login', { failedAttempts: userDoc.failed_login_attempts });
-      }
-      await userDoc.save();
-      return res.status(401).render('login', { error: genericError, notice: null, coinRate: settings.coin_rate_bdt, csrfToken: res.locals.csrfToken });
+app.post('/login/verify-pin', authLimiter, csrfGuard, body('pin').isLength({ min: 4, max: 4 }), async (req, res) => {
+  const phone = req.session.auth && req.session.auth.phone;
+  if (!phone) return res.redirect('/login');
+  const userDoc = await User.findOne({ phone, role: { $in: ['user', 'merchant'] } });
+  if (!userDoc) return res.redirect('/login');
+  if (userDoc.lock_until && userDoc.lock_until > new Date()) {
+    return res.status(423).render('login', await renderData(req, 'login-pin', { phoneMasked: maskPhone(phone), rawPhone: phone, error: 'Account temporarily locked. Try again later.' }));
+  }
+  const ok = await verifyPin(req.body.pin, userDoc.pin_hash);
+  if (!ok) {
+    userDoc.failed_login_attempts += 1;
+    if (userDoc.failed_login_attempts >= 5) {
+      userDoc.lock_until = new Date(Date.now() + 15 * 60 * 1000);
+      await riskCheck('user', userDoc._id, 'failed_login', { failedAttempts: userDoc.failed_login_attempts });
     }
-
-    userDoc.failed_login_attempts = 0;
-    userDoc.lock_until = null;
-    userDoc.last_login = new Date();
     await userDoc.save();
+    return res.status(401).render('login', await renderData(req, 'login-pin', { phoneMasked: maskPhone(phone), rawPhone: phone, error: 'Incorrect PIN.' }));
+  }
+  userDoc.failed_login_attempts = 0;
+  userDoc.lock_until = null;
+  userDoc.last_login = new Date();
+  await userDoc.save();
+  req.session.auth = null;
 
-    req.session.regenerate(async (err) => {
-      if (err) return res.status(500).render('login', { error: 'Something went wrong. Please try again.', notice: null, coinRate: settings.coin_rate_bdt, csrfToken: res.locals.csrfToken });
-      req.session.user = { id: String(userDoc._id), role: userDoc.role, full_name: userDoc.full_name, email: userDoc.email, phone: userDoc.phone };
-      await DeviceSession.create({
-        user_id: userDoc._id,
-        session_id: req.sessionID,
-        device: req.headers['user-agent'] || 'Unknown device',
-        ip: req.ip,
-        user_agent: req.headers['user-agent'] || '',
-      });
-      await auditLog(req, 'login', 'User', userDoc._id);
-      await notify(userDoc._id, userDoc.role, 'Security', 'New Login', `A new sign-in was detected from ${req.ip}.`);
-      res.redirect('/app/dashboard');
+  req.session.regenerate(async (err) => {
+    if (err) return res.status(500).render('login', await renderData(req, 'login-phone', { error: 'Something went wrong. Please try again.' }));
+    req.session.user = { id: String(userDoc._id), role: userDoc.role, full_name: userDoc.full_name, email: userDoc.email, phone: userDoc.phone };
+    await DeviceSession.create({
+      user_id: userDoc._id, session_id: req.sessionID, device: req.headers['user-agent'] || 'Unknown device',
+      ip: req.ip, user_agent: req.headers['user-agent'] || '',
     });
+    await auditLog(req, 'login', 'User', userDoc._id);
+    await notify(userDoc._id, userDoc.role, 'Security', 'New Login', `A new sign-in was detected from ${req.ip}.`);
+    res.redirect('/app/dashboard');
   });
+});
 
-app.post('/register', authLimiter, csrfGuard,
-  body('full_name').trim().isLength({ min: 2, max: 120 }),
-  body('email').isEmail().normalizeEmail(),
-  body('phone').trim().isLength({ min: 6, max: 32 }),
-  body('password').isLength({ min: 8, max: 128 }),
-  body('role').isIn(['user', 'merchant']),
-  async (req, res) => {
-    const settings = await getSystemSettings();
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).render('login', { error: 'Please check your registration details.', notice: null, coinRate: settings.coin_rate_bdt, csrfToken: res.locals.csrfToken });
-    }
-    if (!settings.registration_enabled) {
-      return res.status(403).render('login', { error: 'Registration is currently disabled.', notice: null, coinRate: settings.coin_rate_bdt, csrfToken: res.locals.csrfToken });
-    }
-    if (req.body.role === 'merchant' && !settings.merchant_registration_enabled) {
-      return res.status(403).render('login', { error: 'Merchant registration is currently disabled.', notice: null, coinRate: settings.coin_rate_bdt, csrfToken: res.locals.csrfToken });
-    }
-    const { full_name, email, phone, password, role } = req.body;
-    const exists = await User.findOne({ $or: [{ email: email.toLowerCase() }, { phone }] });
-    if (exists) {
-      return res.status(409).render('login', { error: 'An account with this email or phone already exists.', notice: null, coinRate: settings.coin_rate_bdt, csrfToken: res.locals.csrfToken });
-    }
-    const password_hash = await hashPassword(password);
-    const userDoc = await User.create({ full_name, email: email.toLowerCase(), phone, password_hash, role, status: 'active' });
-    await getOrCreateWallet(userDoc._id, 'user');
+/* ---------- ADMIN LOGIN: email + password ---------- */
+app.post('/admin-login', authLimiter, csrfGuard, body('email').trim().notEmpty(), body('password').notEmpty(), async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(400).render('login', await renderData(req, 'admin', { error: 'Please provide valid credentials.' }));
+  const userDoc = await User.findOne({ email: req.body.email.toLowerCase(), role: 'admin' });
+  const genericError = 'Invalid email or password.';
+  if (!userDoc || !userDoc.password_hash) return res.status(401).render('login', await renderData(req, 'admin', { error: genericError }));
+  if (userDoc.lock_until && userDoc.lock_until > new Date()) {
+    return res.status(423).render('login', await renderData(req, 'admin', { error: 'Account temporarily locked. Try again later.' }));
+  }
+  const ok = await verifyPassword(req.body.password, userDoc.password_hash);
+  if (!ok) {
+    userDoc.failed_login_attempts += 1;
+    if (userDoc.failed_login_attempts >= 5) userDoc.lock_until = new Date(Date.now() + 15 * 60 * 1000);
+    await userDoc.save();
+    return res.status(401).render('login', await renderData(req, 'admin', { error: genericError }));
+  }
+  userDoc.failed_login_attempts = 0;
+  userDoc.lock_until = null;
+  userDoc.last_login = new Date();
+  await userDoc.save();
 
-    if (role === 'merchant') {
-      const merchant = await Merchant.create({
-        user_id: userDoc._id,
-        merchant_ref: newRef('MER'),
-        business_name: full_name,
-        owner_name: full_name,
-        phone, email: email.toLowerCase(),
-        status: 'Pending',
-      });
-      await getOrCreateWallet(merchant._id, 'merchant_pending');
-      await getOrCreateWallet(merchant._id, 'merchant_available');
-      await KYB.create({ merchant_id: merchant._id, status: 'Pending' });
-    } else {
-      await KYC.create({ user_id: userDoc._id, status: 'Not Started' });
-    }
-    await auditLog(req, 'register', 'User', userDoc._id, { role });
-    res.render('login', { error: null, notice: 'Account created successfully. Please sign in.', coinRate: settings.coin_rate_bdt, csrfToken: res.locals.csrfToken });
+  req.session.regenerate(async (err) => {
+    if (err) return res.status(500).render('login', await renderData(req, 'admin', { error: 'Something went wrong. Please try again.' }));
+    req.session.user = { id: String(userDoc._id), role: userDoc.role, full_name: userDoc.full_name, email: userDoc.email, phone: userDoc.phone };
+    await auditLog(req, 'login', 'User', userDoc._id);
+    res.redirect('/app/dashboard');
   });
+});
 
-app.post('/forgot-password', authLimiter, csrfGuard, body('email').isEmail().normalizeEmail(), async (req, res) => {
-  const settings = await getSystemSettings();
-  const genericNotice = 'If an account matches this email, reset instructions have been sent.';
-  const userDoc = await User.findOne({ email: req.body.email });
+app.post('/admin-forgot-password', authLimiter, csrfGuard, body('email').isEmail().normalizeEmail(), async (req, res) => {
+  const genericNotice = 'If an admin account matches this email, reset instructions have been sent.';
+  const userDoc = await User.findOne({ email: req.body.email, role: 'admin' });
   if (userDoc) {
     const token = crypto.randomBytes(32).toString('hex');
     userDoc.reset_token_hash = crypto.createHash('sha256').update(token).digest('hex');
     userDoc.reset_token_expires = new Date(Date.now() + 30 * 60 * 1000);
     await userDoc.save();
-    await notify(userDoc._id, userDoc.role, 'Security', 'Password Reset Requested', 'A password reset was requested for your account. If this was not you, contact support.');
+    await notify(userDoc._id, 'admin', 'Security', 'Password Reset Requested', 'A password reset was requested for your admin account. If this was not you, contact support.');
     // In production this token would be emailed via a transactional email provider, never returned in the response.
   }
-  res.render('login', { error: null, notice: genericNotice, coinRate: settings.coin_rate_bdt, csrfToken: res.locals.csrfToken });
+  res.render('login', await renderData(req, 'admin', { notice: genericNotice }));
+});
+
+/* ---------- REGISTER: phone -> OTP -> info -> PIN ---------- */
+app.post('/register/send-otp', authLimiter, csrfGuard, body('phone').trim().notEmpty(), async (req, res) => {
+  const settings = await getSystemSettings();
+  if (!settings.registration_enabled) return res.status(403).render('login', await renderData(req, 'register-phone', { error: 'Registration is currently disabled.' }));
+  const phone = normalizePhone(req.body.phone);
+  if (phone.length < 8) return res.status(400).render('login', await renderData(req, 'register-phone', { error: 'Please enter a valid phone number.' }));
+  const existing = await User.findOne({ phone });
+  if (existing) return res.status(409).render('login', await renderData(req, 'register-phone', { error: 'An account with this number already exists. Please sign in instead.' }));
+  const otp = await issueOtp(phone, 'register');
+  req.session.auth = { phone, step: 'register' };
+  res.render('login', await renderData(req, 'register-otp', { phoneMasked: maskPhone(phone), demoOtp: otp }));
+});
+
+app.post('/register/resend-otp', authLimiter, csrfGuard, async (req, res) => {
+  const phone = req.session.auth && req.session.auth.phone;
+  if (!phone) return res.redirect('/register');
+  const otp = await issueOtp(phone, 'register');
+  res.render('login', await renderData(req, 'register-otp', { phoneMasked: maskPhone(phone), demoOtp: otp, notice: 'A new code has been sent.' }));
+});
+
+app.post('/register/verify-otp', authLimiter, csrfGuard, body('otp').isLength({ min: 4, max: 4 }), async (req, res) => {
+  const phone = req.session.auth && req.session.auth.phone;
+  if (!phone) return res.redirect('/register');
+  const result = await checkOtp(phone, 'register', req.body.otp);
+  if (!result.ok) return res.status(400).render('login', await renderData(req, 'register-otp', { phoneMasked: maskPhone(phone), error: result.reason }));
+  req.session.auth = { phone, step: 'info' };
+  res.render('login', await renderData(req, 'register-info', {}));
+});
+
+app.post('/register/info', csrfGuard,
+  body('gender').isIn(['male', 'female', 'other']),
+  body('first_name').trim().isLength({ min: 1, max: 60 }),
+  body('last_name').trim().isLength({ min: 1, max: 60 }),
+  body('account_type').isIn(['user', 'merchant']),
+  async (req, res) => {
+    const phone = req.session.auth && req.session.auth.phone && req.session.auth.step === 'info' ? req.session.auth.phone : null;
+    if (!phone) return res.redirect('/register');
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) return res.status(400).render('login', await renderData(req, 'register-info', { error: 'Please fill in the required fields.' }));
+    const settings = await getSystemSettings();
+    if (req.body.account_type === 'merchant' && !settings.merchant_registration_enabled) {
+      return res.status(403).render('login', await renderData(req, 'register-info', { error: 'Merchant registration is currently disabled.' }));
+    }
+    req.session.auth = {
+      phone, step: 'pin',
+      gender: req.body.gender,
+      full_name: `${req.body.first_name.trim()} ${req.body.last_name.trim()}`.trim(),
+      email: req.body.email ? req.body.email.trim().toLowerCase() : null,
+      account_type: req.body.account_type,
+    };
+    res.render('login', await renderData(req, 'register-pin', {}));
+  });
+
+app.post('/register/set-pin', csrfGuard, body('pin').isLength({ min: 4, max: 4 }), body('confirm_pin').isLength({ min: 4, max: 4 }), async (req, res) => {
+  const pending = req.session.auth;
+  if (!pending || pending.step !== 'pin') return res.redirect('/register');
+  if (!/^[0-9]{4}$/.test(req.body.pin) || req.body.pin !== req.body.confirm_pin) {
+    return res.status(400).render('login', await renderData(req, 'register-pin', { error: 'PIN must be 4 digits and match confirmation.' }));
+  }
+  const existing = await User.findOne({ phone: pending.phone });
+  if (existing) return res.status(409).render('login', await renderData(req, 'login-phone', { error: 'An account with this number already exists. Please sign in.' }));
+
+  const pin_hash = await hashPin(req.body.pin);
+  const userDoc = await User.create({
+    full_name: pending.full_name, phone: pending.phone, email: pending.email, gender: pending.gender,
+    pin_hash, phone_verified: true, role: pending.account_type, status: 'active',
+  });
+  await getOrCreateWallet(userDoc._id, 'user');
+
+  if (pending.account_type === 'merchant') {
+    const merchant = await Merchant.create({
+      user_id: userDoc._id, merchant_ref: newRef('MER'), business_name: pending.full_name, owner_name: pending.full_name,
+      phone: pending.phone, email: pending.email || '', status: 'Pending',
+    });
+    await getOrCreateWallet(merchant._id, 'merchant_pending');
+    await getOrCreateWallet(merchant._id, 'merchant_available');
+    await KYB.create({ merchant_id: merchant._id, status: 'Pending' });
+  } else {
+    await KYC.create({ user_id: userDoc._id, status: 'Not Started' });
+  }
+  await auditLog(req, 'register', 'User', userDoc._id, { role: pending.account_type });
+  req.session.auth = null;
+
+  req.session.regenerate(async (err) => {
+    if (err) return res.redirect('/login');
+    req.session.user = { id: String(userDoc._id), role: userDoc.role, full_name: userDoc.full_name, email: userDoc.email, phone: userDoc.phone };
+    await DeviceSession.create({ user_id: userDoc._id, session_id: req.sessionID, device: req.headers['user-agent'] || 'Unknown device', ip: req.ip, user_agent: req.headers['user-agent'] || '' });
+    res.redirect('/app/dashboard');
+  });
+});
+
+/* ---------- FORGOT PIN: phone -> OTP -> new PIN ---------- */
+app.post('/forgot-pin/send-otp', authLimiter, csrfGuard, body('phone').trim().notEmpty(), async (req, res) => {
+  const phone = normalizePhone(req.body.phone);
+  const genericStep = async (extra) => res.render('login', await renderData(req, 'forgot-otp', extra));
+  const userDoc = await User.findOne({ phone, role: { $in: ['user', 'merchant'] } });
+  req.session.auth = { phone, step: 'forgot' };
+  if (!userDoc) {
+    // Do not reveal whether the account exists; show the same next screen either way.
+    return genericStep({ phoneMasked: maskPhone(phone), rawPhone: phone });
+  }
+  const otp = await issueOtp(phone, 'forgot_pin');
+  return genericStep({ phoneMasked: maskPhone(phone), demoOtp: otp });
+});
+
+app.post('/forgot-pin/resend-otp', authLimiter, csrfGuard, async (req, res) => {
+  const phone = req.session.auth && req.session.auth.phone;
+  if (!phone) return res.redirect('/login');
+  const otp = await issueOtp(phone, 'forgot_pin');
+  res.render('login', await renderData(req, 'forgot-otp', { phoneMasked: maskPhone(phone), demoOtp: otp, notice: 'A new code has been sent.' }));
+});
+
+app.post('/forgot-pin/verify-otp', authLimiter, csrfGuard, body('otp').isLength({ min: 4, max: 4 }), async (req, res) => {
+  const phone = req.session.auth && req.session.auth.phone;
+  if (!phone) return res.redirect('/login');
+  const result = await checkOtp(phone, 'forgot_pin', req.body.otp);
+  if (!result.ok) return res.status(400).render('login', await renderData(req, 'forgot-otp', { phoneMasked: maskPhone(phone), error: result.reason }));
+  req.session.auth = { phone, step: 'forgot-pin' };
+  res.render('login', await renderData(req, 'forgot-pin', {}));
+});
+
+app.post('/forgot-pin/reset', csrfGuard, body('pin').isLength({ min: 4, max: 4 }), body('confirm_pin').isLength({ min: 4, max: 4 }), async (req, res) => {
+  const pending = req.session.auth;
+  if (!pending || pending.step !== 'forgot-pin') return res.redirect('/login');
+  if (!/^[0-9]{4}$/.test(req.body.pin) || req.body.pin !== req.body.confirm_pin) {
+    return res.status(400).render('login', await renderData(req, 'forgot-pin', { error: 'PIN must be 4 digits and match confirmation.' }));
+  }
+  const userDoc = await User.findOne({ phone: pending.phone, role: { $in: ['user', 'merchant'] } });
+  if (userDoc) {
+    userDoc.pin_hash = await hashPin(req.body.pin);
+    userDoc.failed_login_attempts = 0;
+    userDoc.lock_until = null;
+    await userDoc.save();
+    await notify(userDoc._id, userDoc.role, 'Security', 'PIN Reset', 'Your login PIN was reset successfully. If this was not you, contact support.');
+    await auditLog(req, 'pin_reset', 'User', userDoc._id);
+  }
+  req.session.auth = null;
+  res.render('login', await renderData(req, 'login-phone', { notice: 'PIN reset successful. Please sign in with your new PIN.' }));
 });
 
 app.post('/logout', requireAuth, csrfGuard, async (req, res) => {
@@ -995,6 +1207,7 @@ app.post('/logout', requireAuth, csrfGuard, async (req, res) => {
     res.redirect('/login');
   });
 });
+
 
 /* ============================================================
  * SECTION: ROLE-SCOPED DATA LOADERS FOR /app/:page
@@ -1937,7 +2150,8 @@ app.post('/api/profile/update', requireAuth, csrfGuard, body('full_name').trim()
   } catch (e) { next(e); }
 });
 
-app.post('/api/security/change-password', requireAuth, csrfGuard, body('current_password').notEmpty(), body('new_password').isLength({ min: 8, max: 128 }), async (req, res, next) => {
+// Admins (email + password accounts) change their password here.
+app.post('/api/security/change-password', requireAuth, requireRole('admin'), csrfGuard, body('current_password').notEmpty(), body('new_password').isLength({ min: 8, max: 128 }), async (req, res, next) => {
   try {
     const u = currentUser(req);
     const userDoc = await User.findById(u.id);
@@ -1950,6 +2164,24 @@ app.post('/api/security/change-password', requireAuth, csrfGuard, body('current_
     res.redirect('/app/security');
   } catch (e) { next(e); }
 });
+
+// Users/merchants (phone + PIN accounts) change their PIN here instead of a password.
+app.post('/api/security/change-pin', requireAuth, requireRole('user', 'merchant'), csrfGuard,
+  body('current_pin').isLength({ min: 4, max: 4 }), body('new_pin').isLength({ min: 4, max: 4 }),
+  async (req, res, next) => {
+    try {
+      const u = currentUser(req);
+      const userDoc = await User.findById(u.id);
+      const ok = await verifyPin(req.body.current_pin, userDoc.pin_hash);
+      if (!ok) return res.status(400).send('Current PIN is incorrect.');
+      if (!/^[0-9]{4}$/.test(req.body.new_pin)) return res.status(400).send('New PIN must be exactly 4 digits.');
+      userDoc.pin_hash = await hashPin(req.body.new_pin);
+      await userDoc.save();
+      await notify(u.id, u.role, 'Security', 'PIN Changed', 'Your login PIN was changed successfully.');
+      await auditLog(req, 'pin_changed', 'User', u.id);
+      res.redirect('/app/security');
+    } catch (e) { next(e); }
+  });
 
 app.post('/api/security/sessions/:id/revoke', requireAuth, csrfGuard, async (req, res, next) => {
   try {
